@@ -1,0 +1,63 @@
+<svg width="100%" viewBox="0 0 680 312" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Locomotion pawl channel pin-level schematic</title>
+<desc>Parking-pawl driver: ESP32-S3 GPIO38 crosses the galvanic barrier through an ISO7741 channel, then a 100 ohm series resistor drives a logic-level N-MOSFET gate. A 10k gate pull-down to motor ground forces the MOSFET off on signal loss, de-energizing the four paralleled pawl solenoids so the pawls spring-engage. A flyback diode clamps the coil. Energize = release; power loss = pawls engaged.</desc>
+<defs>
+<marker id="dp" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="6.5" refY="4" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="context-stroke"/></marker>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.lab,.nl{font-size:14px;font-weight:500;fill:#1f2328}
+.sub{font-size:12px;font-weight:400;fill:#656d76}
+.bg{fill:#ffffff}
+@media (prefers-color-scheme:dark){.lab,.nl{fill:#e6edf3}.sub{fill:#9aa0a8}.bg{fill:#0d1117}}
+</style>
+</defs>
+<rect class="bg" x="0" y="0" width="680" height="312"/>
+<text class="sub" x="44" y="30">pawl driver — energize = release; power loss = pawls engaged (fail-safe)</text>
+<rect x="40" y="62" width="124" height="120" rx="6" fill="rgba(46,160,99,0.1)" stroke="rgba(46,160,99,0.5)"/>
+<rect x="418" y="62" width="222" height="160" rx="6" fill="rgba(201,74,58,0.1)" stroke="rgba(201,74,58,0.5)"/>
+<line x1="298" y1="66" x2="298" y2="196" stroke="#9aa0a8" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text class="sub" x="298" y="212" text-anchor="middle">galvanic isolation</text>
+<rect x="44" y="74" width="112" height="100" rx="4" fill="rgba(46,160,99,0.16)" stroke="#2e9d63"/>
+<text class="lab" x="100" y="120" text-anchor="middle">ESP32-S3</text>
+<text class="sub" x="100" y="136" text-anchor="middle">clean domain</text>
+<text class="sub" x="150" y="114" text-anchor="end">GPIO38</text>
+<rect x="240" y="84" width="96" height="100" rx="4" fill="rgba(120,125,135,0.22)" stroke="#6b7280"/>
+<text class="lab" x="288" y="126" text-anchor="middle">ISO7741 #5</text>
+<text class="sub" x="288" y="142" text-anchor="middle">pawl channel</text>
+<text class="sub" x="246" y="114" text-anchor="start">IN</text>
+<text class="sub" x="330" y="114" text-anchor="end">OUT</text>
+<text class="sub" x="262" y="78" text-anchor="middle">+3V3</text>
+<text class="sub" x="318" y="78" text-anchor="middle">+5V_ISO</text>
+<text class="sub" x="288" y="200" text-anchor="middle">GND_CLEAN · GND_MOTOR</text>
+<rect x="362" y="103" width="26" height="13" rx="2" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<text class="sub" x="375" y="98" text-anchor="middle">100Ω</text>
+<rect x="430" y="92" width="92" height="92" rx="4" fill="rgba(201,74,58,0.16)" stroke="#c0493a"/>
+<text class="lab" x="476" y="130" text-anchor="middle">N-MOSFET</text>
+<text class="sub" x="476" y="146" text-anchor="middle">logic-level</text>
+<text class="sub" x="436" y="116" text-anchor="start">G</text>
+<text class="sub" x="516" y="116" text-anchor="end">D</text>
+<text class="sub" x="476" y="178" text-anchor="middle">S</text>
+<rect x="560" y="92" width="100" height="92" rx="4" fill="rgba(201,74,58,0.16)" stroke="#c0493a"/>
+<text class="lab" x="610" y="130" text-anchor="middle">4× solenoid</text>
+<text class="sub" x="610" y="146" text-anchor="middle">pawls, parallel</text>
+<text class="sub" x="610" y="68" text-anchor="middle">+14V8_SW</text>
+<path d="M156,110 L240,110" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#dp)"/>
+<text class="nl" x="198" y="104" text-anchor="middle">PAWL_REL</text>
+<path d="M336,110 L362,110" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M388,110 L430,110" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#dp)"/>
+<path d="M408,110 L408,214" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<rect x="401" y="214" width="14" height="26" rx="2" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M408,240 L408,256" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<text class="sub" x="420" y="230" text-anchor="start">10k</text>
+<text class="sub" x="408" y="270" text-anchor="middle">GND_MOTOR</text>
+<text class="sub" x="350" y="294" text-anchor="start">gate low on loss → solenoids off → pawls engage</text>
+<path d="M522,110 L560,110" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#dp)"/>
+<path d="M476,184 L476,206" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<text class="sub" x="476" y="220" text-anchor="middle">GND_MOTOR</text>
+<path d="M610,92 L610,74" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M541,110 L541,86" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M541,74 L610,74" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M535,88 L547,88 L541,80 z" fill="#6b7280"/>
+<line x1="535" y1="80" x2="547" y2="80" stroke="#6b7280" stroke-width="1.6"/>
+<text class="sub" x="528" y="100" text-anchor="end">flyback</text>
+</svg>

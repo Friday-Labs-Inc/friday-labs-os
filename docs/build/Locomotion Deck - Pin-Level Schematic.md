@@ -7,6 +7,15 @@
 
 This is a **net-level** schematic: signals, nets, device terminals, and passive values — everything needed to capture the board in KiCad. Where a device's **physical pin number** depends on its package/datasheet (ISO7741, ISO1640, INA219, TCA9548A, AS5600, BNO085), the connection is given by **signal name** and marked *(pin per datasheet)*. Do not transcribe pin numbers from this doc into copper without checking the KiCad symbol against the datasheet. ESP32-S3 GPIO numbers are a reference assignment — finalize against the exact module variant (strapping/flash pins).
 
+## Diagrams
+
+Standalone, theme-adaptive SVGs (render on GitHub light/dark and in any editor):
+
+- **Deck wiring (block):** ![Locomotion deck wiring diagram](diagrams/locomotion-deck-wiring.svg)
+- **Drive channel — repeats ×6:** ![Drive channel pin-level schematic](diagrams/locomotion-drive-channel.svg)
+- **Servo channel — repeats ×4:** ![Servo channel pin-level schematic](diagrams/locomotion-servo-channel.svg)
+- **Pawl driver:** ![Pawl channel pin-level schematic](diagrams/locomotion-pawl-channel.svg)
+
 ## Power rails / nets
 
 | Net | Source | Domain | Feeds |

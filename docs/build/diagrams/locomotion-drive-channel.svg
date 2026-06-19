@@ -1,0 +1,79 @@
+<svg width="100%" viewBox="0 0 680 446" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Locomotion drive channel pin-level schematic</title>
+<desc>One drive channel: ESP32-S3 GPIO4 (PWM) and GPIO17 (DIR) cross a galvanic isolation barrier through an ISO7741 channel pair into an MDD10A driver channel driving drive motor 1, with a motor-side PWM pull-down for fail-safe, a snubber across the motor, a bulk cap, and an AS5600 wheel encoder on the clean I2C0 bus via the TCA9548A mux. Repeats per wheel.</desc>
+<defs>
+<marker id="d" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="6.5" refY="4" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="context-stroke"/></marker>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.lab,.nl{font-size:14px;font-weight:500;fill:#1f2328}
+.sub,.pn{font-size:12px;font-weight:400;fill:#656d76}
+.bg{fill:#ffffff}
+@media (prefers-color-scheme:dark){.lab,.nl{fill:#e6edf3}.sub,.pn{fill:#9aa0a8}.bg{fill:#0d1117}}
+</style>
+</defs>
+<rect class="bg" x="0" y="0" width="680" height="446"/>
+<text class="sub" x="44" y="32">drive channel 1 of 6 — repeats per wheel; servo &amp; pawl channels use the same ISO7741 → load pattern</text>
+<rect x="40" y="62" width="124" height="196" rx="6" fill="rgba(46,160,99,0.1)" stroke="rgba(46,160,99,0.5)"/>
+<rect x="110" y="312" width="140" height="108" rx="6" fill="rgba(46,160,99,0.1)" stroke="rgba(46,160,99,0.5)"/>
+<rect x="418" y="62" width="222" height="150" rx="6" fill="rgba(201,74,58,0.1)" stroke="rgba(201,74,58,0.5)"/>
+<line x1="298" y1="66" x2="298" y2="262" stroke="#9aa0a8" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text class="sub" x="298" y="280" text-anchor="middle">galvanic isolation</text>
+<rect x="44" y="74" width="112" height="172" rx="4" fill="rgba(46,160,99,0.16)" stroke="#2e9d63"/>
+<text class="lab" x="100" y="150" text-anchor="middle">ESP32-S3</text>
+<text class="sub" x="100" y="166" text-anchor="middle">clean domain</text>
+<text class="pn" x="150" y="106" text-anchor="end">GPIO4</text>
+<text class="pn" x="150" y="139" text-anchor="end">GPIO17</text>
+<text class="pn" x="150" y="200" text-anchor="end">GPIO1</text>
+<text class="pn" x="150" y="223" text-anchor="end">GPIO2</text>
+<text class="sub" x="100" y="58" text-anchor="middle">+3V3 / +5V</text>
+<text class="sub" x="100" y="262" text-anchor="middle">GND_CLEAN</text>
+<rect x="250" y="90" width="96" height="120" rx="4" fill="rgba(120,125,135,0.22)" stroke="#6b7280"/>
+<text class="lab" x="298" y="148" text-anchor="middle">ISO7741</text>
+<text class="sub" x="298" y="164" text-anchor="middle">1 channel pair</text>
+<text class="pn" x="256" y="116" text-anchor="start">INA</text>
+<text class="pn" x="256" y="141" text-anchor="start">INB</text>
+<text class="pn" x="340" y="116" text-anchor="end">OUTA</text>
+<text class="pn" x="340" y="141" text-anchor="end">OUTB</text>
+<text class="sub" x="270" y="80" text-anchor="middle">+3V3</text>
+<text class="sub" x="330" y="80" text-anchor="middle">+5V_ISO</text>
+<text class="sub" x="266" y="226" text-anchor="start">GND_CLEAN</text>
+<text class="sub" x="330" y="226" text-anchor="start">GND_MOTOR</text>
+<rect x="430" y="90" width="118" height="120" rx="4" fill="rgba(201,74,58,0.16)" stroke="#c0493a"/>
+<text class="lab" x="489" y="148" text-anchor="middle">MDD10A</text>
+<text class="sub" x="489" y="164" text-anchor="middle">channel 1</text>
+<text class="pn" x="436" y="116" text-anchor="start">PWM1</text>
+<text class="pn" x="436" y="141" text-anchor="start">DIR1</text>
+<text class="pn" x="542" y="116" text-anchor="end">M1A</text>
+<text class="pn" x="542" y="141" text-anchor="end">M1B</text>
+<text class="sub" x="470" y="80" text-anchor="middle">+14V8_SW</text>
+<text class="sub" x="512" y="80" text-anchor="middle">+5V_ISO</text>
+<text class="sub" x="470" y="226" text-anchor="middle">GND_MOTOR</text>
+<circle cx="620" cy="128" r="20" fill="none" stroke="#c0493a" stroke-width="1.6"/>
+<text class="lab" x="620" y="133" text-anchor="middle">M1</text>
+<text class="sub" x="620" y="170" text-anchor="middle">drive motor 1</text>
+<rect x="120" y="318" width="120" height="84" rx="4" fill="rgba(46,160,99,0.16)" stroke="#2e9d63"/>
+<text class="lab" x="180" y="356" text-anchor="middle">AS5600</text>
+<text class="sub" x="180" y="372" text-anchor="middle">wheel 1 encoder</text>
+<text class="sub" x="246" y="360" text-anchor="start">addr 0x36</text>
+<path d="M156,103 L242,103 L242,113 L250,113" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#d)"/>
+<text class="nl" x="200" y="98" text-anchor="middle">DRV_PWM1</text>
+<path d="M156,136 L232,136 L232,138 L250,138" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#d)"/>
+<text class="nl" x="200" y="130" text-anchor="middle">DRV_DIR1</text>
+<path d="M346,113 L430,113" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#d)"/>
+<path d="M346,138 L430,138" fill="none" stroke="#6b7280" stroke-width="1.4" marker-end="url(#d)"/>
+<path d="M388,113 L388,236" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<rect x="381" y="236" width="14" height="26" rx="2" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M388,262 L388,276" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<text class="pn" x="400" y="252" text-anchor="start">10k</text>
+<text class="sub" x="388" y="290" text-anchor="middle">GND_MOTOR</text>
+<text class="sub" x="360" y="316" text-anchor="middle">PWM low on signal loss → motors off</text>
+<path d="M548,115 L600,124" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<path d="M548,140 L600,134" fill="none" stroke="#6b7280" stroke-width="1.4"/>
+<line x1="576" y1="119" x2="576" y2="129" stroke="#6b7280" stroke-width="1.6"/>
+<line x1="582" y1="119" x2="582" y2="129" stroke="#6b7280" stroke-width="1.6"/>
+<text class="pn" x="579" y="112" text-anchor="middle">100nF</text>
+<text class="sub" x="489" y="200" text-anchor="middle">+ 1000µF bulk (B+/B-)</text>
+<path d="M150,318 L150,300 L150,236" fill="none" stroke="#6b7280" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#d)"/>
+<text class="sub" x="158" y="280" text-anchor="start">SDA0/SCL0 via TCA9548A ch1</text>
+<text class="sub" x="180" y="416" text-anchor="middle">+3V3_CLEAN · GND_CLEAN · magnet on shaft</text>
+</svg>
