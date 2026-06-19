@@ -138,9 +138,9 @@ Renders: `/tmp/rover_study/40_struct_side.png`, `41_struct_top.png`, `42_struct_
 ## Open Items
 
 - ✅ **Modular re-model** (Blender) — done & verified: 5 bolt-on boxes, battery centered + top hatch; CG centered (+0.5%) and lower (205 mm). `perseverance_modular.blend`.
-- 🔄 **Drivetrain breakout** (Blender, in progress) — split wheels/arms/knuckles/pivots into named objects + measure + isolated renders, ahead of the wheel/motor-mount integration redesign.
+- ✅ **Drivetrain breakout** — done: 21 named objects; **wheelbase 603 mm, track 567/632 mm, wheel 140 mm confirmed**. **Rebuild markup sent** to Blender (functional wheels / common corner knuckle for 37D + DS3218 / middle motor brackets / structural arms + cable channels / functional diff-bar).
 - ✅ **Chassis CG verification** — done; the wide, low stance is stable (tip 53–55° ≫ 20° slope).
-- **Hub-center wheelbase / track** + **rocker/bogie pivot positions** — axle-center measurement pass still pending (wheels are one merged mesh).
+- ✅ **Hub-center wheelbase / track** — measured (603 / 567–632 mm; see [Mechanical Design Reference](../addendums/Mechanical Design Reference.md)). **Rocker/bogie pivots still estimated** — confirm against real geometry before committing the functional suspension.
 - **Per-box enclosure spec** — material, fan + filtered vent, blind-mate connector, gasket, mount pattern; folds into each module's electronics doc.
 - **Real component masses** — replace estimates with measured/datasheet values once parts are in hand.
 

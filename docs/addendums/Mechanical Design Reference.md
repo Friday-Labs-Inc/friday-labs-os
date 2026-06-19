@@ -87,10 +87,11 @@ This is why the wheel is **140 mm, not the originally-estimated 130 mm**: the 13
 | Overall envelope L × W × H | 743 × 722 × ~596 mm | measured (H w/ mast = computed) |
 | Deck plate (WEB body) L × W × H | 555 × 413 × 220 mm | measured |
 | Wheel diameter | 140 mm | locked |
-| Wheelbase (front↔rear axle) | ~603 mm (span 743 − wheel 140) | derived; confirm by hub centers |
-| Track width (outer) | ~722 mm | measured; axle-center pending |
+| Wheelbase (front↔rear hub) | **603 mm** | **measured** — hubs at x = ±301.5; middle axle +14.7 mm fwd |
+| Track (hub-center) | **567 mm** front/rear · **632 mm** middle | **measured** — corners y = ±283.5, middle y = ±316.0 (bogie wheels sit wider) |
+| Hub centers (datum: WB-center @ ground) | front (±301.5, ±283.5, 70) · mid (+14.7, ±316.0, 70) · rear (∓301.5, ±283.5, 70) | **measured** |
 | Ground clearance (deck underside) | ~180 mm | measured (suspension low point ~58 mm) |
-| Rocker / bogie pivot positions | pending hub-center pass | TBD |
+| Rocker↔body / rocker↔bogie pivots | ≈ (−55, ±170, 295) / (−66, ±200, 244) | **estimated** — decorative arms are one fused blob; confirm vs real geometry before bearings |
 | Mast height | mast removed from working model | TBD |
 
 ## Reference Designs to Evaluate
