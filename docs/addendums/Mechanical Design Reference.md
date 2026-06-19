@@ -56,6 +56,30 @@ Mark 1 supports the same four locomotion modes Perseverance does:
 
 These four cover every maneuver Mark 1 needs: row navigation in agriculture, narrow forest paths, surveillance repositioning, and tight in-place reorientation. The middle wheels not steering does NOT reduce the maneuver set.
 
+## Reference-Model Scaling
+
+A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/perseverance/converted/` (via git-LFS) and loaded in Blender (BlenderMCP) for chassis/suspension study. To bring it to Mark 1 prototype scale, **anchor on the locked 130 mm wheel diameter** ([Locomotion Deck — Build Package](../build/Locomotion Deck - Build Package.md)).
+
+- Real Perseverance wheel diameter: **525 mm** (Curiosity is 500 mm — verify against the model's source).
+- Uniform scale factor: **130 / 525 = 0.2476** (≈ 1:4.04, ~25% — refines the "~25-30%" proportion note above).
+
+| Dimension | Real Perseverance | Mark 1 at 0.2476× |
+|---|---|---|
+| Wheel diameter | 525 mm | **130 mm** (anchor) |
+| Body length | ~3.0 m | ~743 mm |
+| Width | ~2.7 m | ~668 mm |
+| Height (mast top) | ~2.2 m | ~545 mm |
+
+The ~743 × 668 mm footprint sits inside the [60-90 cm envelope](Power Budget.md) — confirming the 130 mm wheel and the prototype size are geometrically consistent.
+
+**Applying it (Blender / CAD):** uniform scale X = Y = Z. The 0.2476 factor assumes the mesh imported at real-world scale; downloaded meshes often don't. Robust procedure:
+
+1. Measure the model's current wheel diameter in its own units.
+2. `scale = 130 / measured_wheel_mm` — 0.2476 if it reads 525 mm; scale *to* 0.130 if it reads 0.525 m; otherwise divide 130 by whatever the wheel measures.
+3. Sanity-check: overall length should land ~743 mm. If it's wildly off, the mesh isn't true-proportion — re-anchor on body length and flag.
+
+**Caveats:** confirm the 525 mm real-wheel figure against the model's source, and remember a decorative downloaded mesh may not be dimensionally faithful — measure, don't assume.
+
 ## Reference Designs to Evaluate
 
 Open-source Perseverance-inspired rovers the team should evaluate before committing to custom CAD:
