@@ -46,3 +46,7 @@ log/
 
 # Local tooling — machine-specific MCP server config (hardcoded local paths)
 .mcp.json
+
+# Blender auto-save backups (the live .blend is tracked via LFS; backups are not)
+*.blend1
+*.blend2

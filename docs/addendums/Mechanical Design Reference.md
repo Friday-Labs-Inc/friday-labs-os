@@ -1,13 +1,14 @@
 # Mechanical Design Reference
 
 > Locks the NASA Perseverance rover as the mechanical-anatomy reference for [Mark 1](../architecture/Mark 1 Compute Architecture.md). Establishes which Perseverance features transfer to the Mark 1 prototype and which do not. Closes the chassis-design ambiguity in the dossier.
-> **Version:** Draft 1.0 · **Purpose:** Lock the mechanical reference before chassis procurement or CAD work.
+> **Version:** Draft 1.1 · **Purpose:** Lock the mechanical reference before chassis procurement or CAD work.
+> **1.1 (2026-06-19):** scale re-anchored on the **743 mm body length** after measuring the GLB mesh in Blender — wheel is now **140 mm** (was 130 mm), scale **0.2668×** (was 0.2476×). The 130 mm / 0.2476× figures assumed Perseverance is 3.0 m long; the mesh measures 2.785 m.
 
 ## Decision
 
 The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rover**, scaled to the [60-90 cm bench prototype envelope](Power Budget.md). This is not a mission-feature parity claim — Mark 1 is not a Mars science rover — it is a *chassis kinematics and proportions* reference. The Perseverance design has decades of JPL engineering behind it and an extensive open-source educational lineage.
 
-**Locked build target:** true Perseverance proportions at **0.2476× scale** (anchored on the locked 130 mm wheel) — body **~743 × 668 × 545 mm**, within the [60-90 cm envelope](Power Budget.md). The JPL OSR is the rocker-bogie **mechanism donor**, but its compact native proportions are **not** adopted: holding true Perseverance proportions means a **partly-custom frame**, re-proportioned in CAD, rather than the stock OSR-kit dimensions. The scaled Perseverance mesh is therefore the build's dimensional reference (see [Reference-Model Scaling](#reference-model-scaling)).
+**Locked build target:** true Perseverance proportions at **0.2668× scale** (anchored on the locked **743 mm body length**; wheel = **140 mm**) — body **~743 × 722 × 596 mm**, within the [60-90 cm envelope](Power Budget.md). The JPL OSR is the rocker-bogie **mechanism donor**, but its compact native proportions are **not** adopted: holding true Perseverance proportions means a **partly-custom frame**, re-proportioned in CAD, rather than the stock OSR-kit dimensions. The scaled Perseverance mesh is therefore the build's dimensional reference (see [Reference-Model Scaling](#reference-model-scaling)).
 
 ## What Transfers from Perseverance
 
@@ -19,7 +20,7 @@ The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rove
 | **Body-mounted sensor mast** | Core's nav sensor (RealSense D435i) and the baseline camera (Arducam IMX477) live on a mast, analogous to Mastcam-Z on Perseverance. Elevation above ground clutter for nav and inspection. |
 | **Box-shaped electronics body** | Compute and battery enclosed in the body. Insulation and active thermal control are not Mark 1 concerns at bench-prototype scale (Earth ambient vs Mars cold). |
 | **Rear-mounted power compartment** | Battery (LiPo on Mark 1) at the rear, replacing Perseverance's MMRTG. |
-| **General proportions** | Mast height, body length, wheelbase ratios held at **true Perseverance proportions, 0.2476× scale** (≈25%); see [Reference-Model Scaling](#reference-model-scaling). |
+| **General proportions** | Mast height, body length, wheelbase ratios held at **true Perseverance proportions, 0.2668× scale** (≈27%); see [Reference-Model Scaling](#reference-model-scaling). |
 
 ## What Does NOT Transfer
 
@@ -31,7 +32,7 @@ The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rove
 | Robotic arm with turret | Out of scope. Mark 1 does not manipulate samples. |
 | Ingenuity helicopter | Replaced by **Spark** on Mark 1 — same role (aerial scout), different design. |
 | Aluminum cleated wheels with grousers | Mark 1 uses commercially available rubber-tired wheels appropriate to bench testing. Cleat design may be revisited if outdoor traction becomes an issue. |
-| Absolute size and mass | Mark 1: **~74 cm body (0.2476× scale), ~11 kg**. Perseverance: 3 m × 2.7 m × 2.2 m, 1025 kg. We hold true proportions at 0.2476× scale, not absolute dimensions. |
+| Absolute size and mass | Mark 1: **~74 cm body (0.2668× scale), ~11 kg**. Perseverance: 3 m × 2.7 m × 2.2 m, 1025 kg. We hold true proportions at 0.2668× scale, not absolute dimensions. |
 | Thermal protection (Mars cold) | Mark 1 operates in Earth ambient. Standard IP weather sealing only; no insulation. |
 | Sky-crane landing system | We have legs and casters, no rocket sky-crane. |
 
@@ -60,39 +61,37 @@ These four cover every maneuver Mark 1 needs: row navigation in agriculture, nar
 
 ## Reference-Model Scaling
 
-A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/perseverance/converted/` (via git-LFS) and loaded in Blender (BlenderMCP). **Mark 1 holds true Perseverance proportions, so the scaled mesh is the build's dimensional reference — not just a study aid.** To bring it to Mark 1 prototype scale, **anchor on the locked 130 mm wheel diameter** ([Locomotion Deck — Build Package](../build/Locomotion Deck - Build Package.md)).
+A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/perseverance/converted/` (via git-LFS) and loaded in Blender (BlenderMCP). **Mark 1 holds true Perseverance proportions, so the scaled mesh is the build's dimensional reference — not just a study aid.** To bring it to Mark 1 prototype scale, **anchor on the locked 743 mm body length** — which yields a **140 mm wheel** (see below; cf. [Locomotion Deck — Build Package](../build/Locomotion Deck - Build Package.md)).
 
-- Real Perseverance wheel diameter: **525 mm** (Curiosity is 500 mm — verify against the model's source).
-- Uniform scale factor: **130 / 525 = 0.2476** (≈ 1:4.04, ~25% — refines the "~25-30%" proportion note above).
+- Real Perseverance wheel diameter: **526 mm** (20.7 in, per NASA/JPL — **verified** against the GLB mesh, which measures 0.526 m; Curiosity is 500 mm).
+- Measured Perseverance wheel-span on the GLB mesh: **2.785 m** (not the rounded 3.0 m once assumed).
+- Uniform scale factor: **743 mm / 2785 mm = 0.2668** (≈ 1:3.75, ~27%), anchored on body length — yields a **140 mm wheel** (0.526 m × 0.2668).
 
-| Dimension | Real Perseverance | Mark 1 at 0.2476× |
+| Dimension | Real Perseverance (GLB mesh) | Mark 1 at 0.2668× |
 |---|---|---|
-| Wheel diameter | 525 mm | **130 mm** (anchor) |
-| Body length | ~3.0 m | ~743 mm |
-| Width | ~2.7 m | ~668 mm |
-| Height (mast top) | ~2.2 m | ~545 mm |
+| Wheel diameter | 526 mm | **140 mm** |
+| Body length (wheel-span) | 2.785 m | **743 mm** (anchor) |
+| Width (track, outer) | 2.705 m | ~722 mm |
+| Height (mast top) | 2.232 m | ~596 mm |
 
-The ~743 × 668 mm footprint sits inside the [60-90 cm envelope](Power Budget.md) — confirming the 130 mm wheel and the prototype size are geometrically consistent.
+The ~743 × 722 mm footprint sits inside the [60-90 cm envelope](Power Budget.md) — confirming the 140 mm wheel and the prototype size are geometrically consistent.
 
-**Applying it (Blender / CAD):** uniform scale X = Y = Z. The 0.2476 factor assumes the mesh imported at real-world scale; downloaded meshes often don't. Robust procedure:
+**Applying it (resolved 2026-06-19).** The mesh was *measured* in Blender, not assumed: wheel Ø = 0.526 m (matches NASA's 526 mm — the mesh is dimensionally faithful) and wheel-span = 2.785 m. Anchoring on the **743 mm body-length** target gives uniform scale **0.2668×** (X = Y = Z), yielding a **140 mm wheel**.
 
-1. Measure the model's current wheel diameter in its own units.
-2. `scale = 130 / measured_wheel_mm` — 0.2476 if it reads 525 mm; scale *to* 0.130 if it reads 0.525 m; otherwise divide 130 by whatever the wheel measures.
-3. Sanity-check: overall length should land ~743 mm. If it's wildly off, the mesh isn't true-proportion — re-anchor on body length and flag.
+This is why the wheel is **140 mm, not the originally-estimated 130 mm**: the 130 mm figure assumed Perseverance is exactly 3.0 m long, but the faithful GLB mesh measures 2.785 m. The build holds the 743 mm length (inside the 60-90 cm envelope); the wheel follows. Working file: `Mechanics/reference-models/perseverance/converted/perseverance_rolling_chassis.blend` (deck + rocker-bogie + 6 wheels; payload stripped).
 
-**Caveats:** confirm the 525 mm real-wheel figure against the model's source, and remember a decorative downloaded mesh may not be dimensionally faithful — measure, don't assume.
+**Derive the remaining build dimensions from the scaled mesh.** Because Mark 1 holds true proportions, there is no separate OSR dimension to reconcile against — the scaled model *is* the spec. Measured off the working file at 0.2668× (140 mm wheel):
 
-**Derive the remaining build dimensions from the scaled mesh.** Because Mark 1 holds true proportions, there is no separate OSR dimension to reconcile against — the scaled model *is* the spec. After scaling to a 130 mm wheel, measure and record from Blender and feed them back here as locked build targets:
-
-| Build dimension | Source | Status |
+| Build dimension | Value | Status |
 |---|---|---|
-| Body L × W × H | computed: ~743 × 668 × 545 mm | from scale |
-| Wheel diameter | 130 mm | locked |
-| Wheelbase (front↔rear axle) | measure off scaled mesh | TBD |
-| Track width (left↔right) | measure off scaled mesh | TBD |
-| Ground clearance | measure off scaled mesh | TBD |
-| Rocker / bogie pivot positions | measure off scaled mesh | TBD |
-| Mast height | measure off scaled mesh | TBD |
+| Overall envelope L × W × H | 743 × 722 × ~596 mm | measured (H w/ mast = computed) |
+| Deck plate (WEB body) L × W × H | 555 × 413 × 220 mm | measured |
+| Wheel diameter | 140 mm | locked |
+| Wheelbase (front↔rear axle) | ~603 mm (span 743 − wheel 140) | derived; confirm by hub centers |
+| Track width (outer) | ~722 mm | measured; axle-center pending |
+| Ground clearance (deck underside) | ~180 mm | measured (suspension low point ~58 mm) |
+| Rocker / bogie pivot positions | pending hub-center pass | TBD |
+| Mast height | mast removed from working model | TBD |
 
 ## Reference Designs to Evaluate
 

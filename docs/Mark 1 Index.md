@@ -102,7 +102,7 @@ Validate every phase in **Gazebo** before hardware — see [Mark 1 Simulation an
 | Stage 5 acceptance | Quantitative p99 budgets per scenario | [Stage 5 Acceptance Criteria](addendums/Stage 5 Acceptance Criteria.md) |
 | Spark flight authority | Bay is launch/dock interface; Spark owns flight | [Spark Authority and friday-core-os Definition](addendums/Spark Authority and friday-core-os Definition.md) |
 | `friday-core-os` definition | systemd target owning all Core Hub service units | [Spark Authority and friday-core-os Definition](addendums/Spark Authority and friday-core-os Definition.md) |
-| Mechanical anatomy reference | NASA Perseverance; 6 drive + 4 corner steer; rocker-bogie + mast; true proportions 0.2476× (~74 cm body, 130 mm wheel); OSR = mechanism donor | [Mechanical Design Reference](addendums/Mechanical Design Reference.md) |
+| Mechanical anatomy reference | NASA Perseverance; 6 drive + 4 corner steer; rocker-bogie + mast; true proportions 0.2668× (~74 cm body, 140 mm wheel); OSR = mechanism donor | [Mechanical Design Reference](addendums/Mechanical Design Reference.md) |
 | mmWave human/animal detection | RD-03D radar baseline on Lab Deck; plug-and-play via USB-UART; LoRa sentries deferred to Mark 2 | [mmWave Human Detection](addendums/mmWave Human Detection.md) |
 | Power tree | Distributed — fused raw 14.8 V to each deck, local regulation | [Electronics Backbone](electronics/Electronics Backbone.md) |
 | Physical E-stop | NC safety loop → motion-power contactor; compute stays alive; pawls drop | [Electronics Backbone](electronics/Electronics Backbone.md) |

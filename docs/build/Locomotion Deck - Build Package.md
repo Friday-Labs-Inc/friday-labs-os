@@ -8,7 +8,7 @@
 - **Mechanical BOM + frame build:** the live JPL Open Source Rover repo — `github.com/nasa-jpl/open-source-rover`. Pull the chassis, rocker-bogie, wheels, and corner-steer mechanical parts from there; it is the validated, maintained source. This doc covers the **Friday Labs electronics** that replace the OSR's stock control electronics, plus integration.
 - **Electrical decisions:** [Locomotion Electronics](../electronics/Locomotion Electronics.md), [Electronics Backbone](../electronics/Electronics Backbone.md), [Safe-Stop Latency Budget](../addendums/Safe-Stop Latency Budget.md).
 
-> **We keep the OSR mechanism; we replace its control electronics — and re-proportion its frame.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack. Per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md), the frame is **re-proportioned to true Perseverance scale (~74 cm body, 0.2476×, 130 mm wheel)** — so OSR is the rocker-bogie mechanism donor, not a stock-dimension build; expect CAD re-spacing rather than a bolt-together kit.
+> **We keep the OSR mechanism; we replace its control electronics — and re-proportion its frame.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack. Per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md), the frame is **re-proportioned to true Perseverance scale (~74 cm body, 0.2668×, 140 mm wheel)** — so OSR is the rocker-bogie mechanism donor, not a stock-dimension build; expect CAD re-spacing rather than a bolt-together kit.
 
 ## Electrical BOM (Friday Labs Locomotion stack)
 
@@ -103,19 +103,19 @@ Each step has a verify gate — don't advance until it passes. Mirrors [Phase 1 
 
 ## Drive-Motor Sizing (resolved)
 
-Inputs: 11 kg loaded mass · 130 mm wheels (r = 0.065 m) · 20° max climb · 1.0 m/s target · 6 driven wheels · Crr = 0.10 (soil/grass).
+Inputs: 11 kg loaded mass · **140 mm wheels (r = 0.070 m)** · 20° max climb · 1.0 m/s target · 6 driven wheels · Crr = 0.10 (soil/grass). *(Re-derived 2026-06-19 for the 140 mm wheel per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md) re-anchor — was 130 mm. Motor and driver selections below still hold.)*
 
 | Quantity | Result |
 |---|---|
-| Wheel speed for 1.0 m/s | ω = v/r = 15.4 rad/s → **~147 RPM** |
+| Wheel speed for 1.0 m/s | ω = v/r = 14.3 rad/s → **~137 RPM** |
 | Tractive force on 20° slope | F = mg(sin20° + 0.10·cos20°) = **47 N** |
-| Total wheel torque | F·r = **3.06 N·m** |
-| Per motor (÷6) | **0.51 N·m** steady climb |
-| Design target (2× for uneven loading) | **≥1.0 N·m (≥10 kg·cm) stall/motor** |
+| Total wheel torque | F·r = **3.29 N·m** |
+| Per motor (÷6) | **0.55 N·m** steady climb |
+| Design target (2× for uneven loading) | **≥1.1 N·m (≥11 kg·cm) stall/motor** |
 
-**Motor spec:** 12 V brushed DC gearmotor, **37D-class, ~70:1** → ~150 RPM, ~1.2–1.3 N·m (12–13 kg·cm) stall, ~5.5 A stall. Confirm against the chosen motor datasheet / live OSR BOM.
+**Motor spec:** 12 V brushed DC gearmotor, **37D-class, ~70:1** → ~150 RPM (**≈1.1 m/s** at the 140 mm wheel), ~1.2–1.3 N·m (12–13 kg·cm) stall, ~5.5–5.9 A stall — still clears the ≥1.1 N·m target. Confirm against the chosen motor datasheet / live OSR BOM.
 
-**Driver confirmed:** motor stall ~5.5 A → **10 A/channel = ~1.8× headroom.** Cytron 10 A class (MDD10A dual / MD-series single). Not 20/30 A.
+**Driver confirmed:** motor stall ~5.9 A → **10 A/channel = ~1.7× headroom.** Cytron 10 A class (MDD10A dual / MD-series single). Not 20/30 A.
 
 **Firmware note — 4S over-voltage:** the 14.8 V bus reaches 16.8 V at full charge, over the 12 V motor rating. **Cap drive PWM duty at ~71% (12 ÷ 16.8)** so motors never exceed 12 V.
 
@@ -125,7 +125,7 @@ Inputs: 11 kg loaded mass · 130 mm wheels (r = 0.065 m) · 20° max climb · 1.
 
 **Steering servos — 4× corner.** Worst case is steering a wheel in place (scrub): with ~30 N per corner (up to ~40 N), μ ≈ 0.8 on soil, patch radius ≈ 0.02 m → scrub torque ≈ ⅔·μ·N·R ≈ **0.3–0.5 N·m (3–5 kg·cm)**. A **20–25 kg·cm servo gives ~4× margin.** Range ≥180° covers full crab walk (±90° at the pivot). **Open-loop PWM** — kinematics use the commanded angle; drive-encoder + IMU + nav-sensor fusion absorbs the few-degree error. (Closed-loop steering-pivot encoders are a future precision upgrade.)
 
-**Parking pawls — 4× corner wheels.** Locking the four corners prevents chassis translation, so the middle wheels are redundant for holding. Each tooth bears **~0.45 N·m (15° hold) / ~0.60 N·m (20°)** — easy tooth design. The **solenoid actuates only** (retracts the pawl against its return spring, ~10–20 N); the tooth geometry bears the slope load. Tradeoff: **no pawl redundancy** — seating must be reliable.
+**Parking pawls — 4× corner wheels.** Locking the four corners prevents chassis translation, so the middle wheels are redundant for holding. Each tooth bears **~0.49 N·m (15° hold) / ~0.65 N·m (20°)** — easy tooth design. The **solenoid actuates only** (retracts the pawl against its return spring, ~10–20 N); the tooth geometry bears the slope load. Tradeoff: **no pawl redundancy** — seating must be reliable.
 
 ## Open Items (need a number or a verification)
 
