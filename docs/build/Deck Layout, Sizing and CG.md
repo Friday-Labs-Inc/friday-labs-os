@@ -1,24 +1,40 @@
 # Deck Layout, Sizing & Center of Gravity
 
 > Proposed deck packaging for the Mark 1 body, an electronics-driven sizing check against the measured chassis, and an analytical center-of-gravity result. Closes the "deck footprint / stack order undocumented" open item flagged during the Blender study.
-> **Version:** Draft 1.0 · **Status: PROPOSED — not yet locked.** Footprints, positions, and component masses are estimates pending real part data + Blender 3D verification.
+> **Version:** Draft 1.1 · **Status: PROPOSED.** Current baseline = **modular bolt-on enclosures with the battery centered** (see below) — this **supersedes the stacked-plate "Architecture A"** kept further down as history. Two earlier locked decisions are deliberately superseded by this pivot: the internal stacked-deck structure, and sealed-conduction cooling (now per-box fans). Blender re-model + CG re-confirm in progress.
 
 ## Documented vs proposed
 
 **Documented** (measured / locked): body envelope 743 × 722 × 596 mm; deck plate 555 × 413 × 220 mm; ground clearance ~180 mm; wheel 140 mm; what each module contains.
 **Proposed here** (to validate): deck footprints, stack order, component positions, and the mass estimates feeding the CG.
 
-## Proposed deck allocation
+## Deck Architecture — Modular Bolt-On Enclosures (current baseline)
 
-| Module | Level | Footprint (proposed) | Position | Why |
-|---|---|---|---|---|
-| Power (4S Li-ion + BMS + contactor + fuses) | Lower | ~185 × 413 mm | Rear third | Heavy → low CG; rear = Perseverance RTG analog; rear hot-swap |
-| Locomotion Control Unit (PCB) | Lower | ~340 × 413 mm | Front ⅔, low | Motor/servo/pawl cabling drops to the wheels |
-| Core Compute Hub | Upper | ~150 × 90 mm | Front, under lid | Conduction path to lid radiator; short USB to mast nav sensor |
-| Telemetry Node | Upper | ~160 × 100 mm | Mid | Antenna leads to bulkhead + mast |
-| Lab Deck | Upper | ~150 × 90 mm | Rear-upper | RPLIDAR cable to roof; radar faces forward |
-| Mast (external) | Top | — | Front roof, +196 mm | RealSense + Arducam + long-range LoRa antennas |
-| Aerial Bay (Spark cradle) | Top | ~200 × 200 mm | Rear roof | Vertical launch clears the front mast |
+Each module is a **self-contained sealed enclosure** (mini-PC casing style) — board screwed inside its own box, box bolted to the base plate, with one **blind-mate power+data connector** to the deck harness and its own small **fan + filtered vent**. Field repair = a box-swap, not a teardown. This is the physical form of the dossier's "each module owns its responsibility."
+
+All boxes sit in a **single layer** on the 555 × 413 mm base plate. The battery is **centered** as the CG anchor.
+
+| Module box | Size L×W×H (mm) | Position | Why |
+|---|---|---|---|
+| **Battery / Power** (4S Li-ion + BMS + contactor + fuses) | 200 × 150 × 95 | **Centered** | Heaviest box → CG anchor; balance becomes insensitive to the light boxes. **Top-loading** via a gasketed lid hatch + blind-mate base connector for hot-swap. (Supersedes the rear "RTG-analog" placement — central for balance.) |
+| Locomotion | 210 × 140 × 60 | Rear | Motor/servo/pawl cabling drops to the drivetrain |
+| Core Hub | 130 × 110 × 55 (+fan) | Front | Short USB to mast nav sensor |
+| Telemetry | 150 × 110 × 55 | Front | Antenna leads to bulkhead + mast |
+| Lab Deck | 140 × 110 × 55 | Front | (three compute boxes side-by-side across the front) |
+| Mast (external) | — | Front roof, → z=596 | RealSense + Arducam + long-range LoRa antennas |
+| Aerial Bay (Spark) | ~200 × 200 | Rear roof | Vertical launch clears the front mast |
+
+### Sensor placement & Z headroom
+
+The boxes occupy only the bottom **~95 mm** of the 220 mm internal height, leaving a **sensor bay** above: **~117 mm clear full-width** (limited by the tall central battery), **~157 mm above the shorter boxes**. The Perseverance-proportional body height is a *feature* here — vertical room for sensors without raising the CG (roof/headroom sensors are light).
+
+| Sensor | Placement | Why |
+|---|---|---|
+| **RD-03D mmWave radar** | Front headroom, forward-facing, out a front aperture | ~22 mm thick; needs clear forward look |
+| **RPLIDAR A3** | Roof (360°) | Unobstructed all-around view |
+| **RealSense + camera** | Mast head | Elevated nav/inspection |
+| Env sensors (BME280, gas) | Headroom / inner walls | Tiny; fit anywhere |
+| Future sensors | The 117–157 mm headroom bay | Room to grow |
 
 ## Electronics-driven sizing check
 
@@ -78,7 +94,9 @@ Mass proxies placed in `perseverance_rolling_chassis.blend` and CG computed in t
 - **Climb traction (Blender):** flat ≈46% front / 54% rear; on a 20° ascent ~11% transfers rearward → front still carries **~35%**. Front well-loaded; no pitch-back.
 - Renders: `/tmp/rover_study/30_cg_side.png`, `31_cg_top.png` (CG marker + plumb line).
 
-## Inter-Deck Structure (Architecture A — modeled)
+## Inter-Deck Structure (Architecture A — SUPERSEDED; kept as history)
+
+> **Superseded 2026-06-19** by the modular bolt-on enclosure baseline above. Retained as history — its verified CG/mass numbers still validate that the chassis is stable and the electronics fit. The plate-stack is no longer the build approach.
 
 Designed and modeled in `Mechanics/reference-models/perseverance/converted/perseverance_structure.blend`. Three options evaluated:
 
@@ -107,15 +125,13 @@ Designed and modeled in `Mechanics/reference-models/perseverance/converted/perse
 
 Renders: `/tmp/rover_study/40_struct_side.png`, `41_struct_top.png`, `42_struct_iso.png`.
 
-## Open Items (blocked on the Blender session)
+## Open Items
 
-- ✅ **3D CG verification** — done; battery-rear confirmed.
-- ✅ **Enclosure/structure proxy** — done: inter-deck structure modeled at 3.09 kg; full-build CG verified at 218 mm.
-- **Hub-center wheelbase / track** + **rocker/bogie pivot positions** — still need the axle-center measurement pass (wheels are one merged mesh).
-- **Confirm Architecture A** as the locked inter-deck approach (vs B/C deferred to Mark 2), and lock real plate material/thickness once load-tested.
-- **Hub-center wheelbase / track** — exact axle-center measurement (wheels are one merged mesh).
-- **Rocker / bogie pivot positions** — measurement pass.
-- **Real component masses** — replace the estimates above with measured/datasheet values once parts are in hand (especially the enclosure/structure 3 kg, which drives CG_z).
+- 🔄 **Modular re-model in progress** (Blender) — rebuild the deck as 5 bolt-on boxes, battery centered + top-loading hatch; re-report CG (expect ≈ center, low) + top/side renders. Fold results here.
+- ✅ **Chassis CG verification** — done; the wide, low stance is stable (tip 53–55° ≫ 20° slope).
+- **Hub-center wheelbase / track** + **rocker/bogie pivot positions** — axle-center measurement pass still pending (wheels are one merged mesh).
+- **Per-box enclosure spec** — material, fan + filtered vent, blind-mate connector, gasket, mount pattern; folds into each module's electronics doc.
+- **Real component masses** — replace estimates with measured/datasheet values once parts are in hand.
 
 ## Related
 

@@ -19,7 +19,7 @@ The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rove
 | **Corner-only steering** | The 4 corner wheels (front-left, front-right, rear-left, rear-right) have steering servos. The 2 middle wheels are drive-only with no steering. This is the key Perseverance pattern and a revision to the dossier's earlier "all 6 steer" assumption. |
 | **Body-mounted sensor mast** | Core's nav sensor (RealSense D435i) and the baseline camera (Arducam IMX477) live on a mast, analogous to Mastcam-Z on Perseverance. Elevation above ground clutter for nav and inspection. |
 | **Box-shaped electronics body** | Compute and battery enclosed in the body. Insulation and active thermal control are not Mark 1 concerns at bench-prototype scale (Earth ambient vs Mars cold). |
-| **Rear-mounted power compartment** | Battery (LiPo on Mark 1) at the rear, replacing Perseverance's MMRTG. |
+| ~~Rear-mounted power compartment~~ **→ Centered battery** | **Superseded (2026-06-19):** the 4S Li-ion battery is **centered** as the CG anchor (top-loading hatch), not rear. Central placement makes the balance insensitive to the light modules; the rear-power = RTG-analog nod is dropped for balance. See [Deck Layout, Sizing & CG](../build/Deck Layout, Sizing and CG.md). |
 | **General proportions** | Mast height, body length, wheelbase ratios held at **true Perseverance proportions, 0.2668× scale** (≈27%); see [Reference-Model Scaling](#reference-model-scaling). |
 
 ## What Does NOT Transfer
