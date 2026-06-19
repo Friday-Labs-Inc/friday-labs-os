@@ -72,7 +72,7 @@ CG = Σ(m·pos)/Σm:
 Mass proxies placed in `perseverance_rolling_chassis.blend` and CG computed in the same datum — **confirms the analytical result and the verdict.**
 
 - **Mass reconciliation:** the itemized component list sums to **7.67 kg** (the "≈9.7 kg" total quoted in the original CG brief to Blender was a mis-add — caught by this pass). The path to the locked ~11 kg is the **enclosure / structure / fasteners** (~3 kg @ body-center z≈290), which is a row in the table above but was omitted from the Blender brief. So: itemized **7.67 kg** + structure **~3 kg** ≈ **10.7 kg** → ~11 kg with hardware/margin.
-- **CG brackets the same answer:** Blender (itemized 7.67 kg, no enclosure proxy) → CG **(−21.7, +0.5, 189) mm**. Analytical (with ~3 kg enclosure) → CG_z **~217 mm**. **Now RESOLVED:** the inter-deck structure was modeled at 3.09 kg → final full-build CG **(−14.9, +0.4, 218) mm** (see Inter-Deck Structure below) — landing exactly on the analytical estimate.
+- **CG brackets the same answer:** Blender (itemized 7.67 kg, no enclosure proxy) → CG **(−21.7, +0.5, 189) mm**. Analytical (with ~3 kg enclosure) → CG_z **~217 mm**. **Now RESOLVED:** the inter-deck structure (~3 kg) was modeled and verified inside the body → final full-build CG **(−15.2, +0.4, 217.1) mm** (see Inter-Deck Structure below) — landing on the analytical estimate.
 - **Tip angles (Blender):** rearward **56.0°**, forward **59.7°**, lateral **58.6°** — all ≫ the 20° operating slope. Tip-over not a concern.
 - **Rear-bias:** CG_x = **−3.6%** of wheelbase (battery at x=−150), well inside the −10% trigger. Sweep: x=−150→−3.6%, x=0→+0.5%, x=+100→+3.2% (perfect center ≈ x=−17). **Decision: battery stays rear — no move; Perseverance RTG-analog placement preserved, no dossier tension.**
 - **Climb traction (Blender):** flat ≈46% front / 54% rear; on a 20° ascent ~11% transfers rearward → front still carries **~35%**. Front well-loaded; no pitch-back.
@@ -95,11 +95,13 @@ Designed and modeled in `Mechanics/reference-models/perseverance/converted/perse
 - Mast mount front-top; Spark-bay mount rear-top; mast-base gusset / front-bulkhead triangulation to kill mast resonance at 1 m/s.
 
 **Final verified numbers:**
-- Structure mass **3.09 kg** (the ~3 kg the model owed).
-- **Full-build total 10.76 kg.**
-- **Full-build CG (−14.9, +0.4, 218) mm** — −2.5% rear (centered structure dilutes the bias), laterally centered. Reconciles the 189→218 mm gap exactly.
-- Tip angles: rear **52.8°** / fwd 55.5° / lat 54.9° — all ≫ 20° slope. Stable.
-- **Height: 162 / 220 mm occupied** (base 2.5 + lower 85 + mid 2.5 + upper 70 + lid 2) → **58 mm margin, no overrun.**
+- Structure mass **~3.0 kg**.
+- **Full-build total 10.61 kg.**
+- **Full-build CG (−15.2, +0.4, 217.1) mm** — −2.5% rear (centered structure dilutes the bias), laterally centered. Lands on the analytical ~217 mm estimate.
+- Tip angles: rear ~**53°** / fwd ~55° / lat ~55° — all ≫ 20° slope. Stable.
+- **Height: structure sits z ≈ 181–401 mm, entirely INSIDE the 220 mm body** (z 179.9–400.3); lid flush with the body top (z=400). Overall rover height unchanged at 596 mm to mast top.
+
+**Verified inside the envelope (2026-06-19).** An earlier x-ray render made the **roof payload** (mast + Spark bay + RPLIDAR, legitimately above z=400) plus a stray oversized reference plane read as a "cage stacked on top," suggesting doubled height. Numerical check + a clean re-render (body shown as orange wireframe) confirm the inter-deck structure is **entirely within the body** — the body did not grow. The stray reference plane was removed and the lid dropped flush. Render: `/tmp/rover_study/50_inside_side.png`.
 
 **Constraints honored:** thermal (Al column Core→lid radiator); grommeted cable pass-throughs (corners RAW/SW + NC E-stop loop; center I2C/USB-CDC/BMS/PWR_FAIL); gasketed rear panel for battery hot-swap (pack slides out without lifting the upper tray); upper tray lifts off 6 standoff bolts for lower-deck access; 2.5 mm plates + 6 standoffs + mast gusset for stiffness; gasketed lid + rear panel for IP sealing; M12 bulkheads on rear + side walls.
 
