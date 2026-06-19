@@ -15,7 +15,7 @@
 | # | Part | Qty | Real-world example | ~Unit | Notes |
 |---|---|---|---|---|---|
 | 1 | MCU | 1 | ESP32-S3-DevKitC-1 (bench) → ESP32-S3-WROOM-1 module (PCB) | $15 | Native USB CDC to Core Hub |
-| 2 | Dual motor driver | 3 | Cytron MDD10A (dual, 10 A/ch, 5-25 V) | $22 | 6 channels for 6 drive motors; ≥2× stall headroom |
+| 2 | Dual motor driver | 4 | **Cytron MDD10A** (dual, 10 A/ch, 5-25 V, PWM+DIR) | $22 | 3 boards = 6 channels + **1 spare**. Buy MDD10A, **not** the RC-oriented MDDRC10. Confirmed by the [sizing calc](#drive-motor-sizing-resolved) (~5.5 A stall → 1.8× headroom). |
 | 3 | Drive gearmotor | 6 | 12 V brushed DC gearmotor, ratio per torque calc (Pololu 37D-class) | $25-40 | **Gear ratio TBD by sizing calc** — see Open Items |
 | 4 | Corner-steer servo | 4 | Metal-gear ~20 kg·cm, 6 V (DS3218-class) | $15 | **Torque + range check** vs OSR corner geometry |
 | 5 | Wheel encoder | 6 | AS5600 magnetic breakout + diametric magnet | $3 | On drive output shafts; all addr 0x36 |
