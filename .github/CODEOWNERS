@@ -1,0 +1,26 @@
+# Friday Labs OS — Code Owners
+#
+# At least one code owner must approve every PR before it merges to main.
+# As the team grows, replace the catch-all rule with per-directory ownership
+# (commented examples below).
+
+# Default — every file requires the primary engineer's review.
+* @rsvasanth
+
+# Per-directory ownership for when the team grows. Uncomment and edit:
+#
+# docs/architecture/         @rsvasanth
+# docs/addendums/            @rsvasanth
+# docs/modules/              @rsvasanth
+# docs/onboarding/           @rsvasanth
+# .claude/skills/            @rsvasanth
+# tools/                     @rsvasanth
+#
+# Future code areas (once they exist):
+#
+# src/friday_msgs/           @rsvasanth
+# src/locomotion-firmware/   @rsvasanth
+# src/core-services/         @rsvasanth
+# src/telemetry-node/        @rsvasanth
+# src/lab-deck/              @rsvasanth
+# sim/                       @rsvasanth
