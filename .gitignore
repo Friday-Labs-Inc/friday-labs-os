@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python (for tools/ and future scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# ROS 2 (for future code)
+build/
+install/
+log/
+*.bag
+*.db3
+
+# Secrets — never commit these
+.env
+.env.local
+*.pem
+*.key
+*.crt
+*credentials*
