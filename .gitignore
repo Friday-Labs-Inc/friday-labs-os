@@ -32,6 +32,10 @@ log/
 *.bag
 *.db3
 
+# ...but the docs build-package directory is documentation, not a ROS build dir
+!docs/build/
+!docs/build/**
+
 # Secrets — never commit these
 .env
 .env.local

@@ -38,6 +38,9 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Lab Deck Electronics](electronics/Lab Deck Electronics.md) — eFuse + isolated-I2C plug-and-play expansion ports.
 - [Aerial Bay Electronics](electronics/Aerial Bay Electronics.md) — bistable over-center lock, self-charging Spark.
 
+**Build packages (deck-by-deck, buildable):**
+- [Locomotion Deck — Build Package](build/Locomotion Deck - Build Package.md) — bottom deck: electrical BOM, ESP32-S3 pinout/wiring map, power-domain & isolation diagram, assembly + bench bring-up order. Built on JPL Open Source Rover mechanics + the Friday Labs locked electronics stack.
+
 **Onboarding (read after the dossier):**
 - [Phase 1 Implementation Kickoff](onboarding/Phase 1 Implementation Kickoff.md) — day-zero guide for any engineer joining the build; 4-week ramp from "haven't read the dossier" to "contributing code." Hand this to any new joiner (including yourself after a break).
 
