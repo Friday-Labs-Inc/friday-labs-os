@@ -40,6 +40,7 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 
 **Build packages (deck-by-deck, buildable):**
 - [Locomotion Deck — Build Package](build/Locomotion Deck - Build Package.md) — bottom deck: electrical BOM, ESP32-S3 pinout/wiring map, power-domain & isolation diagram, assembly + bench bring-up order. Built on JPL Open Source Rover mechanics + the Friday Labs locked electronics stack.
+- [Locomotion Deck — Pin-Level Schematic](build/Locomotion Deck - Pin-Level Schematic.md) — net-by-net schematic spec: ESP32-S3 pin assignment, ISO7741 isolation channel map, every connection, passives/protection with values, fail-safe-on-signal-loss nets, and a KiCad-verify checklist.
 
 **Onboarding (read after the dossier):**
 - [Phase 1 Implementation Kickoff](onboarding/Phase 1 Implementation Kickoff.md) — day-zero guide for any engineer joining the build; 4-week ramp from "haven't read the dossier" to "contributing code." Hand this to any new joiner (including yourself after a break).
