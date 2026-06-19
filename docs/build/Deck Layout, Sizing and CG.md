@@ -67,9 +67,21 @@ CG = Σ(m·pos)/Σm:
 
 **Verdict:** very stable. The wide, low stance makes tip-over a non-issue at the design slopes. The forward mast + Core Hub offset the rear battery + Spark, so net fore/aft bias is only ~16 mm — **no need to move the battery forward; the rear (RTG-analog) placement holds.** CG_z is dominated by the ~3 kg enclosure/structure estimate; a ±30 mm error there still leaves tip angles >49°, so the verdict is robust.
 
+## 3D verification & mass reconciliation (Blender, 2026-06-19)
+
+Mass proxies placed in `perseverance_rolling_chassis.blend` and CG computed in the same datum — **confirms the analytical result and the verdict.**
+
+- **Mass reconciliation:** the itemized component list sums to **7.67 kg** (the "≈9.7 kg" total quoted in the original CG brief to Blender was a mis-add — caught by this pass). The path to the locked ~11 kg is the **enclosure / structure / fasteners** (~3 kg @ body-center z≈290), which is a row in the table above but was omitted from the Blender brief. So: itemized **7.67 kg** + structure **~3 kg** ≈ **10.7 kg** → ~11 kg with hardware/margin.
+- **CG brackets the same answer:** Blender (itemized 7.67 kg, no enclosure proxy) → CG **(−21.7, +0.5, 189) mm**. Analytical (with ~3 kg enclosure) → CG_z **~217 mm**. Real value sits between; both **low, centered (+0.5 mm), stable.**
+- **Tip angles (Blender):** rearward **56.0°**, forward **59.7°**, lateral **58.6°** — all ≫ the 20° operating slope. Tip-over not a concern.
+- **Rear-bias:** CG_x = **−3.6%** of wheelbase (battery at x=−150), well inside the −10% trigger. Sweep: x=−150→−3.6%, x=0→+0.5%, x=+100→+3.2% (perfect center ≈ x=−17). **Decision: battery stays rear — no move; Perseverance RTG-analog placement preserved, no dossier tension.**
+- **Climb traction (Blender):** flat ≈46% front / 54% rear; on a 20° ascent ~11% transfers rearward → front still carries **~35%**. Front well-loaded; no pitch-back.
+- Renders: `/tmp/rover_study/30_cg_side.png`, `31_cg_top.png` (CG marker + plumb line).
+
 ## Open Items (blocked on the Blender session)
 
-- **3D verification of this CG** — place mass proxies in the rolling-chassis `.blend` and confirm the analytical CG (brief already sent to the Blender session).
+- ✅ **3D CG verification** — done (above); battery-rear confirmed.
+- **Add the ~3 kg enclosure/structure proxy** to the Blender model so its 3D CG (189 mm, itemized-only) matches the full-build ~217 mm — minor; verdict unchanged.
 - **Hub-center wheelbase / track** — exact axle-center measurement (wheels are one merged mesh).
 - **Rocker / bogie pivot positions** — measurement pass.
 - **Real component masses** — replace the estimates above with measured/datasheet values once parts are in hand (especially the enclosure/structure 3 kg, which drives CG_z).
