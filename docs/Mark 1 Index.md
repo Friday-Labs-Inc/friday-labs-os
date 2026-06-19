@@ -30,6 +30,14 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Mechanical Design Reference](addendums/Mechanical Design Reference.md) — NASA Perseverance rover as the locked mechanical-anatomy reference; 6 drive + 4 corner steer; four locomotion modes.
 - [mmWave Human Detection](addendums/mmWave Human Detection.md) — RD-03D mmWave radar baseline on the Lab Deck; fog/dark/foliage-piercing detection complementing camera + LiDAR; LoRa sentry network deferred to Mark 2.
 
+**Electronics (deck-by-deck electrical design):**
+- [Electronics Backbone](electronics/Electronics Backbone.md) — shared electrical foundation: distributed power tree, NC-loop physical E-stop, single-point star ground, central fusing, M8/M12 bulkhead connectors, custom-PCB build medium. **Read before the per-deck docs.**
+- [Core Hub Electronics](electronics/Core Hub Electronics.md) — buck→GPIO+override, powered USB hub, conduction cooling, NVMe, supercap shutdown.
+- [Telemetry Node Electronics](electronics/Telemetry Node Electronics.md) — dual independent LoRa, 4G M.2 (5G-ready), backup-ESP32 reboot authority, mast antennas.
+- [Locomotion Electronics](electronics/Locomotion Electronics.md) — Cytron drivers, full galvanic isolation, parking-pawl slope hold, layered safe-stop.
+- [Lab Deck Electronics](electronics/Lab Deck Electronics.md) — eFuse + isolated-I2C plug-and-play expansion ports.
+- [Aerial Bay Electronics](electronics/Aerial Bay Electronics.md) — bistable over-center lock, self-charging Spark.
+
 **Onboarding (read after the dossier):**
 - [Phase 1 Implementation Kickoff](onboarding/Phase 1 Implementation Kickoff.md) — day-zero guide for any engineer joining the build; 4-week ramp from "haven't read the dossier" to "contributing code." Hand this to any new joiner (including yourself after a break).
 
@@ -92,6 +100,15 @@ Validate every phase in **Gazebo** before hardware — see [Mark 1 Simulation an
 | `friday-core-os` definition | systemd target owning all Core Hub service units | [Spark Authority and friday-core-os Definition](addendums/Spark Authority and friday-core-os Definition.md) |
 | Mechanical anatomy reference | NASA Perseverance rover; 6 drive + 4 corner steer; rocker-bogie + mast | [Mechanical Design Reference](addendums/Mechanical Design Reference.md) |
 | mmWave human/animal detection | RD-03D radar baseline on Lab Deck; plug-and-play via USB-UART; LoRa sentries deferred to Mark 2 | [mmWave Human Detection](addendums/mmWave Human Detection.md) |
+| Power tree | Distributed — fused raw 14.8 V to each deck, local regulation | [Electronics Backbone](electronics/Electronics Backbone.md) |
+| Physical E-stop | NC safety loop → motion-power contactor; compute stays alive; pawls drop | [Electronics Backbone](electronics/Electronics Backbone.md) |
+| Grounding / fusing / connectors | Single-point star ground; central fuse block + per-deck protection; M8/M12 bulkhead | [Electronics Backbone](electronics/Electronics Backbone.md) |
+| Build medium | Custom PCB per deck; breadboard bench-only | [Electronics Backbone](electronics/Electronics Backbone.md) |
+| Core Hub electronics | Buck→GPIO+override, powered USB hub, conduction cooling, NVMe, supercap shutdown | [Core Hub Electronics](electronics/Core Hub Electronics.md) |
+| Telemetry electronics | Dual independent LoRa, 4G M.2 (5G-ready), ESP32 reboot authority, mast antennas | [Telemetry Node Electronics](electronics/Telemetry Node Electronics.md) |
+| Locomotion electronics | Cytron drivers, full galvanic isolation, parking pawls, layered safe-stop | [Locomotion Electronics](electronics/Locomotion Electronics.md) |
+| Lab Deck electronics | eFuse + isolated-I2C plug-and-play expansion ports | [Lab Deck Electronics](electronics/Lab Deck Electronics.md) |
+| Aerial Bay electronics | Bistable over-center lock, self-charging Spark | [Aerial Bay Electronics](electronics/Aerial Bay Electronics.md) |
 
 ## Reference
 
