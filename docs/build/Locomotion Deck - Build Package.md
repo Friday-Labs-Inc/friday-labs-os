@@ -101,15 +101,34 @@ Each step has a verify gate — don't advance until it passes. Mirrors [Phase 1 
 8. **Watchdog safe-stop** — run [safe-stop-audit](../../.claude/skills/safe-stop-audit/SKILL.md). *Verify:* killing the Pi heartbeat / micro-ROS agent / USB cable trips brake within budget; pawls hold on a 15° slope.
 9. **Move to PCB** — once the breadboard passes 1-8, lay out the custom carrier PCB (KiCad → JLCPCB). *Verify:* re-run steps 4-8 on the PCB before the deck goes on a moving rover.
 
+## Drive-Motor Sizing (resolved)
+
+Inputs: 11 kg loaded mass · 130 mm wheels (r = 0.065 m) · 20° max climb · 1.0 m/s target · 6 driven wheels · Crr = 0.10 (soil/grass).
+
+| Quantity | Result |
+|---|---|
+| Wheel speed for 1.0 m/s | ω = v/r = 15.4 rad/s → **~147 RPM** |
+| Tractive force on 20° slope | F = mg(sin20° + 0.10·cos20°) = **47 N** |
+| Total wheel torque | F·r = **3.06 N·m** |
+| Per motor (÷6) | **0.51 N·m** steady climb |
+| Design target (2× for uneven loading) | **≥1.0 N·m (≥10 kg·cm) stall/motor** |
+
+**Motor spec:** 12 V brushed DC gearmotor, **37D-class, ~70:1** → ~150 RPM, ~1.2–1.3 N·m (12–13 kg·cm) stall, ~5.5 A stall. Confirm against the chosen motor datasheet / live OSR BOM.
+
+**Driver confirmed:** motor stall ~5.5 A → **10 A/channel = ~1.8× headroom.** Cytron 10 A class (MDD10A dual / MD-series single). Not 20/30 A.
+
+**Firmware note — 4S over-voltage:** the 14.8 V bus reaches 16.8 V at full charge, over the 12 V motor rating. **Cap drive PWM duty at ~71% (12 ÷ 16.8)** so motors never exceed 12 V.
+
+**Power note:** a sustained 20° climb draws ~12–15 A total (~100–160 W) — above the [Power Budget](../addendums/Power Budget.md) ~80 W motor-peak line. Per-channel current stays well under 10 A; mission planner should avoid long sustained steep ascents.
+
 ## Open Items (need a number or a verification)
 
-- **Drive gear ratio** — torque/speed calc from wheel diameter + target ≤1 m/s + worst-case slope + rover mass. Sets the exact gearmotor.
 - **Steering servo torque + range** — check against OSR corner-steer geometry and ground-contact resistance.
 - **Pawl solenoid force + tooth pitch** — mechanical sizing so a pawl reliably holds the worst-case slope torque.
 - **Pawl count** — 6 (all wheels) vs 4 — depends on rocker-bogie weight distribution. Default 6 until a load calc says fewer.
 - **Exact GPIO finalization** — against the chosen ESP32-S3 module variant (strapping/flash pins).
-- **OSR BOM cross-reference** — confirm the live JPL OSR motor/wheel parts and reconcile mounting for the AS5600 magnets on the drive shafts.
-- **MDD10A final amp rating** — confirm ≥2× measured stall once the gearmotor is chosen (MDD10A's 10 A/ch should cover most 37D-class motors).
+- **OSR BOM cross-reference** — confirm the live JPL OSR motor/wheel parts and reconcile mounting for the AS5600 magnets on the drive shafts; verify the 70:1 motor's exact RPM/torque/stall-current against its datasheet.
+- **Heavy/steep case** — if final mass ≥15 kg or climb >20°, re-run the calc: a higher ratio (~100:1, ~100 RPM, lower top speed) may be needed, and per-channel stall current rises toward the 10 A limit.
 
 ## Related
 
