@@ -17,7 +17,7 @@
 | 1 | MCU | 1 | ESP32-S3-DevKitC-1 (bench) → ESP32-S3-WROOM-1 module (PCB) | $15 | Native USB CDC to Core Hub |
 | 2 | Dual motor driver | 4 | **Cytron MDD10A** (dual, 10 A/ch, 5-25 V, PWM+DIR) | $22 | 3 boards = 6 channels + **1 spare**. Buy MDD10A, **not** the RC-oriented MDDRC10. Confirmed by the [sizing calc](#drive-motor-sizing-resolved) (~5.5 A stall → 1.8× headroom). |
 | 3 | Drive gearmotor | 6 | 12 V brushed DC gearmotor, ratio per torque calc (Pololu 37D-class) | $25-40 | **Gear ratio TBD by sizing calc** — see Open Items |
-| 4 | Corner-steer servo | 4 | Metal-gear ~20 kg·cm, 6 V (DS3218-class) | $15 | **Torque + range check** vs OSR corner geometry |
+| 4 | Corner-steer servo | 4 | Metal-gear ~20-25 kg·cm, 6 V, ≥180° (DS3218/DS3225) | $15-20 | Open-loop PWM; ~4× margin over in-place scrub (see sizing) |
 | 5 | Wheel encoder | 6 | AS5600 magnetic breakout + diametric magnet | $3 | On drive output shafts; all addr 0x36 |
 | 6 | I2C mux | 1 | TCA9548A breakout (addr 0x70) | $7 | Fans out 6× AS5600 (shared 0x36) |
 | 7 | IMU | 1 | Adafruit BNO085 (addr 0x4A) | $25 | On-chip fusion; clean-domain I2C |
@@ -27,7 +27,7 @@
 | 11 | Isolated DC-DC | 1 | 5 V 1-2 W isolated module (Recom/Murata) | $8 | Powers motor-side logic / isolator far side |
 | 12 | Logic buck | 1 | 5 V/3 A buck (clean domain) | $5 | Feeds ESP32 + clean sensors |
 | 13 | Servo BEC | 1 | 6 V 5 A UBEC (isolated servo rail) | $8 | Separate from logic + main motor power |
-| 14 | Pawl solenoid | 6 | Push/pull solenoid (spring-return) | $5 | Spring-engaged, power-to-release |
+| 14 | Pawl solenoid | 4 | Push/pull solenoid (spring-return) | $5 | **Corner wheels only**; spring-engaged, power-to-release; tooth bears the load, solenoid actuates only |
 | 15 | Solenoid MOSFET | 1-2 | Logic-level N-FET bank (IRLZ44N-class) + flyback diodes | $2 | Drives the pawl bank |
 | 16 | Protection | — | Input fuse, TVS, RC snubbers across motors, bulk caps | $10 | Per [Electronics Backbone](../electronics/Electronics Backbone.md) |
 | 17 | Connectors | — | XT60 (power), JST-XH (signal), M12 bulkhead (inter-deck) | $20 | No Dupont on a moving rover |
@@ -121,11 +121,15 @@ Inputs: 11 kg loaded mass · 130 mm wheels (r = 0.065 m) · 20° max climb · 1.
 
 **Power note:** a sustained 20° climb draws ~12–15 A total (~100–160 W) — above the [Power Budget](../addendums/Power Budget.md) ~80 W motor-peak line. Per-channel current stays well under 10 A; mission planner should avoid long sustained steep ascents.
 
+## Steering & Pawl Sizing (resolved)
+
+**Steering servos — 4× corner.** Worst case is steering a wheel in place (scrub): with ~30 N per corner (up to ~40 N), μ ≈ 0.8 on soil, patch radius ≈ 0.02 m → scrub torque ≈ ⅔·μ·N·R ≈ **0.3–0.5 N·m (3–5 kg·cm)**. A **20–25 kg·cm servo gives ~4× margin.** Range ≥180° covers full crab walk (±90° at the pivot). **Open-loop PWM** — kinematics use the commanded angle; drive-encoder + IMU + nav-sensor fusion absorbs the few-degree error. (Closed-loop steering-pivot encoders are a future precision upgrade.)
+
+**Parking pawls — 4× corner wheels.** Locking the four corners prevents chassis translation, so the middle wheels are redundant for holding. Each tooth bears **~0.45 N·m (15° hold) / ~0.60 N·m (20°)** — easy tooth design. The **solenoid actuates only** (retracts the pawl against its return spring, ~10–20 N); the tooth geometry bears the slope load. Tradeoff: **no pawl redundancy** — seating must be reliable.
+
 ## Open Items (need a number or a verification)
 
-- **Steering servo torque + range** — check against OSR corner-steer geometry and ground-contact resistance.
-- **Pawl solenoid force + tooth pitch** — mechanical sizing so a pawl reliably holds the worst-case slope torque.
-- **Pawl count** — 6 (all wheels) vs 4 — depends on rocker-bogie weight distribution. Default 6 until a load calc says fewer.
+- **Pawl mechanical detailing** — tooth pitch (target settle <~5 mm of wheel rotation), return-spring force, solenoid stroke; reliable seating matters since 4 corners give no redundancy.
 - **Exact GPIO finalization** — against the chosen ESP32-S3 module variant (strapping/flash pins).
 - **OSR BOM cross-reference** — confirm the live JPL OSR motor/wheel parts and reconcile mounting for the AS5600 magnets on the drive shafts; verify the 70:1 motor's exact RPM/torque/stall-current against its datasheet.
 - **Heavy/steep case** — if final mass ≥15 kg or climb >20°, re-run the calc: a higher ratio (~100:1, ~100 RPM, lower top speed) may be needed, and per-channel stall current rises toward the 10 A limit.
