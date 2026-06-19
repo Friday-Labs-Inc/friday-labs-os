@@ -7,6 +7,8 @@
 
 The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rover**, scaled to the [60-90 cm bench prototype envelope](Power Budget.md). This is not a mission-feature parity claim — Mark 1 is not a Mars science rover — it is a *chassis kinematics and proportions* reference. The Perseverance design has decades of JPL engineering behind it and an extensive open-source educational lineage.
 
+**Locked build target:** true Perseverance proportions at **0.2476× scale** (anchored on the locked 130 mm wheel) — body **~743 × 668 × 545 mm**, within the [60-90 cm envelope](Power Budget.md). The JPL OSR is the rocker-bogie **mechanism donor**, but its compact native proportions are **not** adopted: holding true Perseverance proportions means a **partly-custom frame**, re-proportioned in CAD, rather than the stock OSR-kit dimensions. The scaled Perseverance mesh is therefore the build's dimensional reference (see [Reference-Model Scaling](#reference-model-scaling)).
+
 ## What Transfers from Perseverance
 
 | Feature | How Mark 1 inherits it |
@@ -17,7 +19,7 @@ The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rove
 | **Body-mounted sensor mast** | Core's nav sensor (RealSense D435i) and the baseline camera (Arducam IMX477) live on a mast, analogous to Mastcam-Z on Perseverance. Elevation above ground clutter for nav and inspection. |
 | **Box-shaped electronics body** | Compute and battery enclosed in the body. Insulation and active thermal control are not Mark 1 concerns at bench-prototype scale (Earth ambient vs Mars cold). |
 | **Rear-mounted power compartment** | Battery (LiPo on Mark 1) at the rear, replacing Perseverance's MMRTG. |
-| **General proportions** | Mast height, body length, wheelbase ratios scaled to ~25-30% of Perseverance's full size. |
+| **General proportions** | Mast height, body length, wheelbase ratios held at **true Perseverance proportions, 0.2476× scale** (≈25%); see [Reference-Model Scaling](#reference-model-scaling). |
 
 ## What Does NOT Transfer
 
@@ -29,7 +31,7 @@ The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rove
 | Robotic arm with turret | Out of scope. Mark 1 does not manipulate samples. |
 | Ingenuity helicopter | Replaced by **Spark** on Mark 1 — same role (aerial scout), different design. |
 | Aluminum cleated wheels with grousers | Mark 1 uses commercially available rubber-tired wheels appropriate to bench testing. Cleat design may be revisited if outdoor traction becomes an issue. |
-| Size and mass | Mark 1: 60-90 cm, ~5-10 kg. Perseverance: 3 m × 2.7 m × 2.2 m, 1025 kg. We scale proportions, not absolute dimensions. |
+| Absolute size and mass | Mark 1: **~74 cm body (0.2476× scale), ~11 kg**. Perseverance: 3 m × 2.7 m × 2.2 m, 1025 kg. We hold true proportions at 0.2476× scale, not absolute dimensions. |
 | Thermal protection (Mars cold) | Mark 1 operates in Earth ambient. Standard IP weather sealing only; no insulation. |
 | Sky-crane landing system | We have legs and casters, no rocket sky-crane. |
 
@@ -58,7 +60,7 @@ These four cover every maneuver Mark 1 needs: row navigation in agriculture, nar
 
 ## Reference-Model Scaling
 
-A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/perseverance/converted/` (via git-LFS) and loaded in Blender (BlenderMCP) for chassis/suspension study. To bring it to Mark 1 prototype scale, **anchor on the locked 130 mm wheel diameter** ([Locomotion Deck — Build Package](../build/Locomotion Deck - Build Package.md)).
+A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/perseverance/converted/` (via git-LFS) and loaded in Blender (BlenderMCP). **Mark 1 holds true Perseverance proportions, so the scaled mesh is the build's dimensional reference — not just a study aid.** To bring it to Mark 1 prototype scale, **anchor on the locked 130 mm wheel diameter** ([Locomotion Deck — Build Package](../build/Locomotion Deck - Build Package.md)).
 
 - Real Perseverance wheel diameter: **525 mm** (Curiosity is 500 mm — verify against the model's source).
 - Uniform scale factor: **130 / 525 = 0.2476** (≈ 1:4.04, ~25% — refines the "~25-30%" proportion note above).
@@ -80,6 +82,18 @@ The ~743 × 668 mm footprint sits inside the [60-90 cm envelope](Power Budget.md
 
 **Caveats:** confirm the 525 mm real-wheel figure against the model's source, and remember a decorative downloaded mesh may not be dimensionally faithful — measure, don't assume.
 
+**Derive the remaining build dimensions from the scaled mesh.** Because Mark 1 holds true proportions, there is no separate OSR dimension to reconcile against — the scaled model *is* the spec. After scaling to a 130 mm wheel, measure and record from Blender and feed them back here as locked build targets:
+
+| Build dimension | Source | Status |
+|---|---|---|
+| Body L × W × H | computed: ~743 × 668 × 545 mm | from scale |
+| Wheel diameter | 130 mm | locked |
+| Wheelbase (front↔rear axle) | measure off scaled mesh | TBD |
+| Track width (left↔right) | measure off scaled mesh | TBD |
+| Ground clearance | measure off scaled mesh | TBD |
+| Rocker / bogie pivot positions | measure off scaled mesh | TBD |
+| Mast height | measure off scaled mesh | TBD |
+
 ## Reference Designs to Evaluate
 
 Open-source Perseverance-inspired rovers the team should evaluate before committing to custom CAD:
@@ -88,7 +102,7 @@ Open-source Perseverance-inspired rovers the team should evaluate before committ
 - **Sawppy the Rover** (Roger Cheng) — Curiosity / Perseverance-style 6-wheel rocker-bogie. ~$500 BOM. 3D-printable. Accessible, well-trodden community path.
 - **Curio Rover** — Perseverance-replica 3D-printable design (referenced in [Locomotion Control Unit](../modules/Locomotion Control Unit.md) open items). Educational-scale.
 
-Recommendation: evaluate **Sawppy** or **Curio** first for cost reasons. Commit to OSR only if a specific feature is missing from those.
+Recommendation: use these as the **rocker-bogie mechanism donor** (linkage design, pivots, drive/steer modules) — but because Mark 1 holds true Perseverance proportions (~74 cm body), **no stock kit fits dimensionally**; expect to re-space the rocker-bogie and scale the frame in CAD. **Sawppy / Curio** (3D-printed, parametric) are easiest to re-proportion; the OSR frame is more fixed. This is more custom work than a stock-kit build — the accepted cost of true-proportion fidelity.
 
 ## Mast and Sensor Mounting
 

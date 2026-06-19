@@ -8,7 +8,7 @@
 - **Mechanical BOM + frame build:** the live JPL Open Source Rover repo — `github.com/nasa-jpl/open-source-rover`. Pull the chassis, rocker-bogie, wheels, and corner-steer mechanical parts from there; it is the validated, maintained source. This doc covers the **Friday Labs electronics** that replace the OSR's stock control electronics, plus integration.
 - **Electrical decisions:** [Locomotion Electronics](../electronics/Locomotion Electronics.md), [Electronics Backbone](../electronics/Electronics Backbone.md), [Safe-Stop Latency Budget](../addendums/Safe-Stop Latency Budget.md).
 
-> **We keep the OSR mechanics; we replace its control electronics.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack.
+> **We keep the OSR mechanism; we replace its control electronics — and re-proportion its frame.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack. Per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md), the frame is **re-proportioned to true Perseverance scale (~74 cm body, 0.2476×, 130 mm wheel)** — so OSR is the rocker-bogie mechanism donor, not a stock-dimension build; expect CAD re-spacing rather than a bolt-together kit.
 
 ## Electrical BOM (Friday Labs Locomotion stack)
 
