@@ -1,7 +1,7 @@
 # Deck Layout, Sizing & Center of Gravity
 
 > Proposed deck packaging for the Mark 1 body, an electronics-driven sizing check against the measured chassis, and an analytical center-of-gravity result. Closes the "deck footprint / stack order undocumented" open item flagged during the Blender study.
-> **Version:** Draft 1.1 · **Status: PROPOSED.** Current baseline = **modular bolt-on enclosures with the battery centered** (see below) — this **supersedes the stacked-plate "Architecture A"** kept further down as history. Two earlier locked decisions are deliberately superseded by this pivot: the internal stacked-deck structure, and sealed-conduction cooling (now per-box fans). Blender re-model + CG re-confirm in progress.
+> **Version:** Draft 1.1 · **Status: PROPOSED.** Current baseline = **modular bolt-on enclosures with the battery centered** (see below) — this **supersedes the stacked-plate "Architecture A"** kept further down as history. Two earlier locked decisions are deliberately superseded by this pivot: the internal stacked-deck structure, and sealed-conduction cooling (now per-box fans). Blender modular re-model + CG re-confirmed: **CG centered (+0.5%), 205 mm — lower than the plate-stack** (see Verified below).
 
 ## Documented vs proposed
 
@@ -26,7 +26,7 @@ All boxes sit in a **single layer** on the 555 × 413 mm base plate. The battery
 
 ### Sensor placement & Z headroom
 
-The boxes occupy only the bottom **~95 mm** of the 220 mm internal height, leaving a **sensor bay** above: **~117 mm clear full-width** (limited by the tall central battery), **~157 mm above the shorter boxes**. The Perseverance-proportional body height is a *feature* here — vertical room for sensors without raising the CG (roof/headroom sensors are light).
+The boxes occupy only the bottom **~95 mm** of the 220 mm internal height, leaving a **sensor bay** above (verified in the Blender re-model): **~122 mm above the central battery**, **~162 mm above the compute boxes**. The Perseverance-proportional body height is a *feature* here — vertical room for sensors without raising the CG (roof/headroom sensors are light).
 
 | Sensor | Placement | Why |
 |---|---|---|
@@ -34,7 +34,17 @@ The boxes occupy only the bottom **~95 mm** of the 220 mm internal height, leavi
 | **RPLIDAR A3** | Roof (360°) | Unobstructed all-around view |
 | **RealSense + camera** | Mast head | Elevated nav/inspection |
 | Env sensors (BME280, gas) | Headroom / inner walls | Tiny; fit anywhere |
-| Future sensors | The 117–157 mm headroom bay | Room to grow |
+| Future sensors | The 122–162 mm headroom bay | Room to grow |
+
+### Verified (Blender modular re-model, 2026-06-19) — `perseverance_modular.blend`
+
+Stacked plates/standoffs/thermal-column removed; 5 sealed boxes single-layer on the base plate; battery centered with top-load hatch + blind-mate connector.
+
+- Total **10.41 kg** (structure 2.74 kg).
+- **CG (+3.0, 0.0, 205.1) mm = +0.5% wheelbase** → centered, and **lower (205 vs 217 mm of the plate-stack)** — a single low layer beats a stack.
+- Tip angles: rear **56.1°** / fwd 55.5° / lat 56.5° — very stable, slightly better than the stack.
+- Body 555 × 413 × 220 mm and overall 596 mm unchanged; full sensor headroom preserved.
+- Renders: `/tmp/rover_study/60_modular_top.png`, `61_modular_side.png`, `62_modular_iso.png`.
 
 ## Electronics-driven sizing check
 
@@ -127,7 +137,8 @@ Renders: `/tmp/rover_study/40_struct_side.png`, `41_struct_top.png`, `42_struct_
 
 ## Open Items
 
-- 🔄 **Modular re-model in progress** (Blender) — rebuild the deck as 5 bolt-on boxes, battery centered + top-loading hatch; re-report CG (expect ≈ center, low) + top/side renders. Fold results here.
+- ✅ **Modular re-model** (Blender) — done & verified: 5 bolt-on boxes, battery centered + top hatch; CG centered (+0.5%) and lower (205 mm). `perseverance_modular.blend`.
+- 🔄 **Drivetrain breakout** (Blender, in progress) — split wheels/arms/knuckles/pivots into named objects + measure + isolated renders, ahead of the wheel/motor-mount integration redesign.
 - ✅ **Chassis CG verification** — done; the wide, low stance is stable (tip 53–55° ≫ 20° slope).
 - **Hub-center wheelbase / track** + **rocker/bogie pivot positions** — axle-center measurement pass still pending (wheels are one merged mesh).
 - **Per-box enclosure spec** — material, fan + filtered vent, blind-mate connector, gasket, mount pattern; folds into each module's electronics doc.
