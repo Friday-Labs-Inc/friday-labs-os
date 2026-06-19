@@ -43,3 +43,6 @@ log/
 *.key
 *.crt
 *credentials*
+
+# Local tooling — machine-specific MCP server config (hardcoded local paths)
+.mcp.json
