@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 1680 1188">
+<rect width="1680" height="1188" fill="#ffffff"/>
+<rect x="22" y="22" width="1636" height="1144" fill="none" stroke="#1f3050" stroke-width="2.5" rx="4"/>
+<rect x="22" y="22" width="1636" height="58" fill="#1f3050" rx="4"/>
+<rect x="22" y="74" width="1636" height="6" fill="#20b2a6"/>
+<text x="46" y="58" font-size="16" fill="#9fb0c8" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FRIDAY LABS  -  MARK 1</text>
+<text x="1634" y="50" font-size="21" fill="#ffffff" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Controller, I2C Sensors &amp; Isolation Bank</text>
+<text x="1634" y="71" font-size="12.5" fill="#aebbcf" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Sheet 2 - ESP32-S3 pinout, encoder mux tree, current-sense isolation</text>
+<rect x="60" y="150" width="330" height="300" rx="8" fill="#ffffff" stroke="#1f3050" stroke-width="2"/>
+<text x="225.0" y="176" font-size="13" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ISOLATION BANK (ISO7741 x5)</text>
+<line x1="60" y1="188" x2="390" y2="188" stroke="#c5cfdc" stroke-width="1"/>
+<text x="76" y="217" font-size="12.5" fill="#20b2a6" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">#1</text>
+<text x="114" y="217" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DRV_PWM1..4 -&gt; MDD10A PWM</text>
+<line x1="60" y1="232" x2="390" y2="232" stroke="#eef3f9" stroke-width="1"/>
+<text x="76" y="263" font-size="12.5" fill="#20b2a6" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">#2</text>
+<text x="114" y="263" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DRV_PWM5-6, DIR1-2</text>
+<line x1="60" y1="278" x2="390" y2="278" stroke="#eef3f9" stroke-width="1"/>
+<text x="76" y="309" font-size="12.5" fill="#20b2a6" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">#3</text>
+<text x="114" y="309" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DRV_DIR3..6</text>
+<line x1="60" y1="324" x2="390" y2="324" stroke="#eef3f9" stroke-width="1"/>
+<text x="76" y="355" font-size="12.5" fill="#20b2a6" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">#4</text>
+<text x="114" y="355" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">SRV_PWM1..4 -&gt; servos</text>
+<line x1="60" y1="370" x2="390" y2="370" stroke="#eef3f9" stroke-width="1"/>
+<text x="76" y="401" font-size="12.5" fill="#20b2a6" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">#5</text>
+<text x="114" y="401" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">PAWL_REL -&gt; FET (+3 spare)</text>
+<line x1="60" y1="416" x2="390" y2="416" stroke="#eef3f9" stroke-width="1"/>
+<text x="60" y="478" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">All ISO7741 channels run clean -&gt; power (4/0 part).</text>
+<text x="60" y="498" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">E-stop sense is a separate opto (Sheet 1).</text>
+<rect x="460" y="150" width="250" height="600" rx="12" fill="#ffffff" stroke="#179b86" stroke-width="2.8"/>
+<text x="585.0" y="180" font-size="20" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ESP32-S3</text>
+<text x="585.0" y="200" font-size="11.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motion controller (clean domain)</text>
+<line x1="460" y1="212" x2="710" y2="212" stroke="#c5cfdc" stroke-width="1"/>
+<text x="472" y="239" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO4-7</text>
+<text x="472" y="255" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">DRV_PWM1..4</text>
+<polyline points="460,246 436,246" fill="none" stroke="#5b6472" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 246 l8 -5 l0 10 Z" fill="#5b6472"/>
+<text x="424" y="250" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh3</text>
+<text x="472" y="307" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO15,16</text>
+<text x="472" y="323" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">DRV_PWM5..6</text>
+<polyline points="460,314 436,314" fill="none" stroke="#5b6472" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 314 l8 -5 l0 10 Z" fill="#5b6472"/>
+<text x="424" y="318" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh3</text>
+<text x="472" y="375" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO17,18</text>
+<text x="472" y="391" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">DRV_DIR1..2</text>
+<polyline points="460,382 436,382" fill="none" stroke="#5b6472" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 382 l8 -5 l0 10 Z" fill="#5b6472"/>
+<text x="424" y="386" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh3</text>
+<text x="472" y="443" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO8-11</text>
+<text x="472" y="459" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">DRV_DIR3..6</text>
+<polyline points="460,450 436,450" fill="none" stroke="#5b6472" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 450 l8 -5 l0 10 Z" fill="#5b6472"/>
+<text x="424" y="454" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh3</text>
+<text x="472" y="511" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO12-14,21</text>
+<text x="472" y="527" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SRV_PWM1..4</text>
+<polyline points="460,518 436,518" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 518 l8 -5 l0 10 Z" fill="#b9831e"/>
+<text x="424" y="522" font-size="10.5" fill="#b9831e" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh4</text>
+<text x="472" y="579" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO38</text>
+<text x="472" y="595" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL_REL</text>
+<polyline points="460,586 436,586" fill="none" stroke="#c0493a" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 586 l8 -5 l0 10 Z" fill="#c0493a"/>
+<text x="424" y="590" font-size="10.5" fill="#c0493a" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh4</text>
+<text x="472" y="647" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO39</text>
+<text x="472" y="663" font-size="12" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ESTOP_LIVE in</text>
+<polyline points="460,654 436,654" fill="none" stroke="#6b7484" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M436 654 l8 -5 l0 10 Z" fill="#6b7484"/>
+<text x="424" y="658" font-size="10.5" fill="#6b7484" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Sh1</text>
+<text x="698" y="257" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO1/2 I2C0</text>
+<text x="698" y="273" font-size="12.5" fill="#2563b0" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SDA0/SCL0</text>
+<polyline points="710,264 734,264" fill="none" stroke="#2563b0" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="698" y="397" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO48</text>
+<text x="698" y="413" font-size="12.5" fill="#27313f" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STAT_LED</text>
+<polyline points="710,404 734,404" fill="none" stroke="#27313f" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="698" y="497" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO19/20</text>
+<text x="698" y="513" font-size="12.5" fill="#7a3fb0" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">USB DM/DP</text>
+<polyline points="710,504 734,504" fill="none" stroke="#7a3fb0" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="698" y="687" font-size="10.5" fill="#5b6472" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GPIO41/42 I2C1</text>
+<text x="698" y="703" font-size="12.5" fill="#2563b0" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SDA1/SCL1</text>
+<polyline points="710,694 734,694" fill="none" stroke="#2563b0" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="585.0" y="710" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">5V &lt;- +5V_CLEAN  -  3V3 -&gt; +3V3_CLEAN</text>
+<text x="585.0" y="728" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">GND -&gt; GND_CLEAN (clean star leg)</text>
+<polyline points="734,404 744,404" fill="none" stroke="#5b6472" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="754" cy="404" r="10" fill="#ffffff" stroke="#20b2a6" stroke-width="2.4"/>
+<text x="754" y="426" font-size="9.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">+330R</text>
+<polyline points="754,430 754,441" fill="none" stroke="#27313f" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="741" y1="441" x2="767" y2="441" stroke="#27313f" stroke-width="2.4"/>
+<line x1="746" y1="446" x2="762" y2="446" stroke="#27313f" stroke-width="2.4"/>
+<line x1="750.5" y1="451" x2="757.5" y2="451" stroke="#27313f" stroke-width="2.4"/>
+<polyline points="734,504 726,504" fill="none" stroke="#7a3fb0" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="726" y="478" width="176" height="52" rx="10" fill="#ffffff" stroke="#7a3fb0" stroke-width="2.4"/>
+<text x="814.0" y="505" font-size="17" fill="#7a3fb0" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">USB-C -&gt; Core Hub</text>
+<text x="814.0" y="525" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">CDC link</text>
+<text x="786" y="142" font-size="11.5" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">I2C0 (clean) - mux, IMU + 6 wheel encoders - pull-ups 4.7k -&gt; +3V3_CLEAN</text>
+<polyline points="734,264 760,264" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="760" cy="264" r="4.5" fill="#2563b0"/>
+<polyline points="760,264 760,422" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="800" y="236" width="170" height="84" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="885.0" y="263" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">TCA9548A</text>
+<text x="885.0" y="283" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">I2C mux - 0x70</text>
+<polyline points="760,278 800,278" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="800" y="380" width="170" height="84" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="885.0" y="407" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">BNO085</text>
+<text x="885.0" y="427" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">IMU - 0x4A</text>
+<polyline points="760,422 800,422" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="970,278 1230,278" fill="none" stroke="#179b86" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1230,204 1230,634" fill="none" stroke="#179b86" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1300" y="174" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="201" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #1</text>
+<text x="1375.0" y="221" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch0</text>
+<polyline points="1230,204 1300,204" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="204" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="198" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD0/SC0</text>
+<rect x="1300" y="260" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="287" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #2</text>
+<text x="1375.0" y="307" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch1</text>
+<polyline points="1230,290 1300,290" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="290" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="284" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD1/SC1</text>
+<rect x="1300" y="346" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="373" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #3</text>
+<text x="1375.0" y="393" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch2</text>
+<polyline points="1230,376 1300,376" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="376" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="370" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD2/SC2</text>
+<rect x="1300" y="432" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="459" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #4</text>
+<text x="1375.0" y="479" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch3</text>
+<polyline points="1230,462 1300,462" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="462" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="456" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD3/SC3</text>
+<rect x="1300" y="518" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="545" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #5</text>
+<text x="1375.0" y="565" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch4</text>
+<polyline points="1230,548 1300,548" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="548" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="542" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD4/SC4</text>
+<rect x="1300" y="604" width="150" height="62" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="1375.0" y="631" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">AS5600 #6</text>
+<text x="1375.0" y="651" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">encoder 0x36 - ch5</text>
+<polyline points="1230,634 1300,634" fill="none" stroke="#179b86" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1230" cy="634" r="3.5" fill="#179b86"/>
+<text x="1265.0" y="628" font-size="10" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SD5/SC5</text>
+<text x="786" y="700" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">each AS5600 reads a magnet on its wheel shaft (one per drive wheel)</text>
+<text x="786" y="775" font-size="11.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">I2C1 (clean -&gt; motor, galvanically isolated)</text>
+<polyline points="734,694 734,694 734,838 800,838" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="800" y="790" width="210" height="96" rx="10" fill="#ffffff" stroke="#6b7484" stroke-width="2.4"/>
+<text x="905.0" y="817" font-size="17" fill="#6b7484" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ISO1640</text>
+<text x="905.0" y="837" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">isolated I2C buffer</text>
+<text x="905" y="906" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">VCC1 3V3 / VCC2 +5V_ISO - pull-ups both sides</text>
+<rect x="1110" y="790" width="210" height="96" rx="10" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="1215.0" y="817" font-size="17" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">INA219</text>
+<text x="1215.0" y="837" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">bus current - 0x40</text>
+<polyline points="1010,838 1110,838" fill="none" stroke="#2563b0" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1060" y="826" font-size="10" fill="#2563b0" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SDA2/SCL2</text>
+<path d="M1320 838 L1334 826 L1519 826 L1519 850 L1334 850 Z" fill="#ffffff" stroke="#c0493a" stroke-width="2"/>
+<text x="1336" y="843" font-size="12.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">shunt in +14V8_SW (Sheet 4)</text>
+<text x="60" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">LEGEND</text>
+<line x1="138" y1="1118" x2="172" y2="1118" stroke="#2563b0" stroke-width="3.5"/>
+<text x="180" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">I2C</text>
+<line x1="240" y1="1118" x2="274" y2="1118" stroke="#5b6472" stroke-width="3.5"/>
+<text x="282" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">control</text>
+<line x1="374" y1="1118" x2="408" y2="1118" stroke="#7a3fb0" stroke-width="3.5"/>
+<text x="416" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">USB</text>
+<rect x="1180" y="1066" width="470" height="92" rx="6" fill="#ffffff" stroke="#1f3050" stroke-width="2"/>
+<line x1="1180" y1="1100" x2="1650" y2="1100" stroke="#1f3050" stroke-width="1.2"/>
+<line x1="1500" y1="1066" x2="1500" y2="1158" stroke="#1f3050" stroke-width="1.2"/>
+<text x="1194" y="1089" font-size="14" fill="#1f3050" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Mark 1 - Locomotion Control Unit</text>
+<text x="1194" y="1120" font-size="15" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Controller, Sensors &amp; Isolation</text>
+<text x="1194" y="1142" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Friday Labs Inc. - Design stage - schematic per netlist Draft 1.0</text>
+<text x="1575" y="1089" font-size="10.5" fill="#20b2a6" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FULL SCHEMATIC</text>
+<text x="1575" y="1123" font-size="17" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SHEET 2/4</text>
+<text x="1575" y="1144" font-size="10.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Rev A - 2026</text>
+</svg>
