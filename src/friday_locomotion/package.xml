@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>friday_locomotion</name>
+  <version>0.1.0</version>
+  <description>
+    Locomotion Control Unit agent (Phase 2 walking-skeleton stub). Subclasses
+    ModuleAgent to register, heartbeat, and report health. Motor control,
+    odometry, and the 100 ms safe-stop land in a later phase.
+  </description>
+  <maintainer email="iamfriday86@gmail.com">Friday Labs Inc.</maintainer>
+  <license>Proprietary</license>
+
+  <depend>rclpy</depend>
+  <depend>friday_module_agent</depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,13 @@
+{
+  "name": "Friday Labs OS (ROS 2 Jazzy)",
+  "build": { "dockerfile": "Dockerfile" },
+  "workspaceFolder": "/ws",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/ws,type=bind",
+  "runArgs": ["--network=host", "--ipc=host"],
+  "remoteUser": "ubuntu",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-iot.vscode-ros", "ms-python.python"]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Module agent -> module-registry registration handshake.
+# Service: /mark1/system/register_module   Owner: module-registry.
+# A major protocol-version mismatch (header.protocol_major) => accepted=false.
+Mark1Header header               # carries module_id + protocol semver + stamp
+string hardware_type             # e.g. locomotion, telemetry, research, aerial_bay, core
+string sw_version
+string fw_version
+string[<=32] capabilities        # bounded: e.g. drive, steer, safe_stop
+---
+bool   accepted
+string assigned_namespace        # e.g. /mark1/locomotion
+string reason

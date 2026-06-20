@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>friday_module_agent</name>
+  <version>0.1.0</version>
+  <description>
+    Reusable ROS 2 lifecycle-node base implementing the Friday Labs OS
+    module-agent contract (register, heartbeat, health, safe-state) plus
+    the locked QoS policy. Every Mark 1 module subclasses ModuleAgent.
+  </description>
+  <maintainer email="iamfriday86@gmail.com">Friday Labs Inc.</maintainer>
+  <license>Proprietary</license>
+
+  <depend>rclpy</depend>
+  <depend>friday_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>builtin_interfaces</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
