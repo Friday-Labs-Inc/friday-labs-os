@@ -47,8 +47,9 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 **Onboarding (read after the dossier):**
 - [Phase 1 Implementation Kickoff](onboarding/Phase 1 Implementation Kickoff.md) — day-zero guide for any engineer joining the build; 4-week ramp from "haven't read the dossier" to "contributing code." Hand this to any new joiner (including yourself after a break).
 
-**Software (implementation — one walk-through per finished phase, written in parallel with the code):**
-- [Phase 2 — The Walking Skeleton](software/Phase 2 - Walking Skeleton.md) — the first running software (lifecycle orchestration, Stage 2): Core Hub registry + supervisor + health monitor and the Locomotion agent stub on the reusable `ModuleAgent` base. Beginner-traceable walk-through with a step-by-step boot trace, design rationale, a debugging guide, and verification. Code in `src/` (`friday_msgs`, `friday_module_agent`, `friday_core_hub`, `friday_locomotion`).
+**Software (the living Software Manual — grows one chapter per foundation phase, written in parallel with the code):**
+- [Friday Labs OS — Software Manual](software/Friday Labs OS Software Manual.md) — **start here for the software.** The big-picture architecture, the workspace map, build/run + the dev workflow, the debugging toolkit, a plain-language glossary, and the foundation-phase map. Each finished phase adds a chapter.
+  - [Phase 2 — The Walking Skeleton](software/Phase 2 - Walking Skeleton.md) — first running software (lifecycle orchestration, Stage 2): Core Hub registry + supervisor + health monitor and the Locomotion agent stub on the reusable `ModuleAgent` base. Beginner-traceable walk-through: boot trace, design rationale, debugging guide, verification. Code in `src/` (`friday_msgs`, `friday_module_agent`, `friday_core_hub`, `friday_locomotion`).
 
 ## The Five Modules
 

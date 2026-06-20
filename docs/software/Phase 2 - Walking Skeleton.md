@@ -1,5 +1,7 @@
 # Phase 2 — The Walking Skeleton (Walk-Through)
 
+> 📘 **Chapter for Phase 2 of the [Friday Labs OS Software Manual](Friday Labs OS Software Manual.md).** Read the manual's front matter (architecture, build/run, master glossary, debugging toolkit) first — this chapter builds on it.
+
 > The first **running** software of Friday Labs OS. This doc is written so you
 > can **trace it, run it, and debug it** even if you're new to ROS 2 — plain
 > language first, details second. Read it top to bottom.
