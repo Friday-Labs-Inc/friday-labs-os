@@ -12,11 +12,18 @@
 
 ## How to read this manual
 
+> 🌱 **Brand new, or want the origin story?** Read the genesis chapter first:
+> **[Phase 0 — Genesis: The First Line of Code](Phase 0 - Genesis - The First Line of Code.md)**.
+> It walks from an empty folder to Friday Labs' very first line of code and the
+> first program that runs — no prior robotics knowledge needed. It's the single
+> best starting point for anyone who picks up this manual cold.
+
 1. **Start here** (Sections 1–6). This is the stuff that's the *same in every
    phase*: the big picture, where the code lives, how to build and run it, the
    debugging toolkit, and a plain-language glossary.
-2. **Then read the chapter** for the phase you care about (Section 7). Each
-   chapter is a self-contained walk-through of one phase.
+2. **Then read the chapters** in order (Section 7) — they're a story:
+   **Phase 0 (Genesis)** → **Phase 2 (Walking Skeleton)** → onward. Each chapter
+   is a self-contained walk-through.
 3. **New to ROS 2?** Every technical word is in the **Glossary** (Section 6).
 
 Each chapter follows the same template, so once you've read one you know how to
@@ -190,6 +197,7 @@ dossier's 5-phase roadmap and the seven-stage sim bring-up.)
 
 | Phase | What it proves | Status | Chapter |
 |---|---|---|---|
+| **0 — Genesis** | How the codebase begins: from an empty folder to the first line of code (`uint8 protocol_major`) to the first program that runs. Read this first. | ✅ Complete | [Phase 0 — Genesis: The First Line of Code](Phase 0 - Genesis - The First Line of Code.md) |
 | **1 — Design foundation** | The architecture, the shared `friday_msgs` contract, QoS policy, and safety model — on paper, locked. | ✅ Complete | The dossier — start at [Mark 1 Index](../Mark 1 Index.md) |
 | **2 — Walking skeleton** | Parts find each other, start up in order (lifecycle), and are watched by heartbeat. The spine everything bolts onto. | ✅ Complete | [Phase 2 — The Walking Skeleton](Phase 2 - Walking Skeleton.md) |
 | **3 — Communication** | Real data flowing: modules ↔ OS ↔ Command Center, including the external (non-ROS) boundary. | ⏳ Planned | _added when implemented_ |
