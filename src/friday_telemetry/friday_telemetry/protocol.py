@@ -21,6 +21,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
+from friday_module_agent.nonce_store import NonceStore
+
 # friday_msgs contract version this boundary speaks (packed semver).
 PROTOCOL_MAJOR = 0
 PROTOCOL_MINOR = 1
@@ -93,11 +95,12 @@ class CommandValidator:
     `now` is a callable returning the current unix time (injected for tests).
     """
 
-    def __init__(self, rover_id: str, operator_keys: dict, now):
+    def __init__(self, rover_id: str, operator_keys: dict, now, nonce_store=None):
         self._rover_id = rover_id
         self._keys = dict(operator_keys)
         self._now = now
-        self._last_nonce: dict = {}      # sender_id -> last accepted nonce
+        # Durable per-sender nonce floor (survives a restart). In-memory if no path.
+        self._nonces = nonce_store if nonce_store is not None else NonceStore()
 
     def validate(self, envelope: dict) -> Validation:
         pv = envelope.get("protocol_version", {})
@@ -118,10 +121,10 @@ class CommandValidator:
         if float(envelope.get("expires_at", 0)) < self._now():
             return Validation(False, EXPIRED, "command expired")
         nonce = envelope.get("nonce")
-        last = self._last_nonce.get(sender)
+        last = self._nonces.last(sender)
         if last is not None and nonce <= last:
             return Validation(False, SECURITY_REPLAY,
                               f"nonce {nonce} <= last {last} for '{sender}'")
         # Accept: commit the nonce only now (a rejected command must not advance it).
-        self._last_nonce[sender] = nonce
+        self._nonces.commit(sender, nonce)
         return Validation(True, OK, "accepted", envelope)

@@ -23,7 +23,8 @@
    debugging toolkit, and a plain-language glossary.
 2. **Then read the chapters** in order (Section 7) — they're a story:
    **Phase 0 (Genesis)** → **Phase 2 (Walking Skeleton)** → **Phase 3 (Closed-Loop
-   Motion)** → onward. Each chapter is a self-contained walk-through.
+   Motion)** → **Phase 4 (Safety)** → onward. Each chapter is a self-contained
+   walk-through.
 3. **New to ROS 2?** Every technical word is in the **Glossary** (Section 6).
 
 Each chapter follows the same template, so once you've read one you know how to
@@ -190,6 +191,10 @@ phase's specific failure modes.
 | **Odometry** | Standard ROS message: "here's where I am and how fast I'm going." |
 | **odom frame** | The map-like coordinate system Locomotion reports position in. |
 | **Motion model** | Math that turns a drive command into an updated position. |
+| **Authority lease** | A rover-wide token; only its current holder may issue motion/stop commands. |
+| **Safe-state** | The rover's defined stop: motors at zero, steering frozen. |
+| **Watchdog** | A timer that trips a safe-stop if the brain's safety pulse goes quiet. |
+| **EmergencyStop** | A message that forces safe-state immediately. |
 | **Command Center** | The remote operator station that sends commands over the internet. |
 | **Envelope** | The sealed, signed package every external command travels in. |
 | **Ed25519 signature** | A tamper-proof "wax seal" proving who sent a command and that it's unchanged. |
@@ -210,7 +215,7 @@ dossier's 5-phase roadmap and the seven-stage sim bring-up.)
 | **1 — Design foundation** | The architecture, the shared `friday_msgs` contract, QoS policy, and safety model — on paper, locked. | ✅ Complete | The dossier — start at [Mark 1 Index](../Mark 1 Index.md) |
 | **2 — Walking skeleton** | Parts find each other, start up in order (lifecycle), and are watched by heartbeat. The spine everything bolts onto. | ✅ Complete | [Phase 2 — The Walking Skeleton](Phase 2 - Walking Skeleton.md) |
 | **3 — Communication** | Closed-loop motion (`MotionCommand` → `Odometry`) **and** the guarded Command Center boundary (Ed25519-signed MQTT link; every command validated). | ✅ Complete | [Closed-Loop Motion](Phase 3 - Closed-Loop Motion.md) · [Command Center Boundary](Phase 3 - Command Center Boundary.md) |
-| **4 — Safety** | Heartbeat-loss → failover, the 100 ms safe-stop, recovery, and the emergency beacon. | ⏳ Planned | _added when implemented_ |
+| **4 — Safety** | **Authority enforcement** (only the lease holder may command; nonce + expiry), the **safe-stop watchdog** (pulse-loss / e-stop → motors-off, 112 ms), and **split-brain failover** (two-signal self-promote ~2.0 s; epoch-monotonic gate; clean hand-back `CORE@1→TLM@2→CORE@3`) — all ✅; HIL 100 ms p99 ⏳ (hardware-gated). | ✅ Sim-complete | [Phase 4 — Safety](Phase 4 - Safety.md) |
 | **5 — Autonomy & missions** | Mission planning, sensor fusion, mapping, and Spark coordination. | ⏳ Planned | _added when implemented_ |
 
 ---

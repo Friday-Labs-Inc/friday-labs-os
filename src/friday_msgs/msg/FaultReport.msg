@@ -10,6 +10,7 @@ uint8 CATEGORY_GENERAL         = 0
 uint8 CATEGORY_SECURITY_AUTH   = 1   # bad/forged signature, unknown operator
 uint8 CATEGORY_SECURITY_REPLAY = 2   # nonce <= last seen (replayed command)
 uint8 CATEGORY_COMMS           = 3   # link / transport failure
+uint8 CATEGORY_WATCHDOG        = 4   # safe-stop tripped (heartbeat loss / e-stop)
 
 Mark1Header header
 uint8  severity

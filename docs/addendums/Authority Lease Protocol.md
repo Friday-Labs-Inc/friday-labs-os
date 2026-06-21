@@ -106,10 +106,12 @@ Command-issuing services (`command-router`, `safety-supervisor`) on both nodes m
 - Restarting Core while Telemetry holds the lease completes a clean handoff with zero conflicting commands during the transition — verified by S4.
 - Forced network partition (both nodes can reach Locomotion but not each other) does not result in both sides issuing motion commands — verified by S3.
 
+**Status (Phase 4):** S1, S3, and S4 are ✅ **verified in node-sim on the Legion farm** — failover in ~2.0 s; a stale lower-epoch lease ignored at the consumer; clean hand-back with the holder/epoch sequence `CORE@1 → TLM@2 → CORE@3`. The formal Stage 5 fault-injection harness and the HIL 100 ms p99 watchdog remain.
+
 ## Open Items
 
 - Confirm `epoch` width: `uint64` survives ~584 billion years at one transition per second. Locked.
-- Confirm whether `last_known_epoch` mismatch in `RequestAuthority` should grant or reject. Recommended: grant if requester's epoch is ≥ current holder's, reject otherwise. To finalize during Phase 2 build.
+- ✅ **Locked (Phase 4 build):** a `last_known_epoch` mismatch in `RequestAuthority` is **granted iff the requester's epoch ≥ the current holder's** (and only while the rover is stable — no motion / no active fault); rejected otherwise. Implemented in the ROS-free `authority.may_grant_return`; verified by S4.
 
 ## Related
 

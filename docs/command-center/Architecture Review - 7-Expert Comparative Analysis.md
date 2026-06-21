@@ -109,7 +109,89 @@ These are the real priorities. The number in brackets = how many of the 7 raised
 
 ---
 
+---
+
+## Round 2 — Delta Re-Review (after Phases 2–4 shipped)
+
+The same 7-dimension panel re-reviewed the system once real code landed (Phases
+2–4 built + verified on the Legion farm). This time the agents read the **actual
+source**, not just docs — which surfaced things round 1 couldn't.
+
+### Score delta
+
+| Dimension | R1 | Now | Δ |
+|---|---|---|---|
+| Application | 3 | **3.5** | ▲ rover-side boundary + safety shipped as tested code |
+| System design | 2.4 | **3** | ▲ the security spine is running code, not spec |
+| Connectivity | 3 | 3 | ▬ security-solid but transport resilience untouched |
+| Radio & RF | 2 | 2 | ▬ no RF hardware/link-budget work |
+| Cloud & distributed | 2 | 2 | ▬ zero distributed infra moved |
+| Data feeding & lake | 2 | 2 | ▬ data layer still design-only |
+| Data pipeline & AI | 2 | 2 | ▬ no pipeline built |
+
+The control/security **spine rose**; the data/cloud/RF dimensions are **flat**
+(untouched by Phase 2–4). Honest picture: we built primitives, not breadth.
+
+### Three findings the code revealed (a doc review could not)
+
+1. **Phase 3 ↔ Phase 4 don't compose — the integration is BROKEN. [App · System · Cloud]**
+   `TelemetryAgent._dispatch_command` stamps `cmd.source = sender_id` (the
+   *operator* id, e.g. `OP-001`), but Phase 4's `safety.authorize()` rejects any
+   source that isn't the lease holder (`MARK1-CORE-001`). So a real operator
+   command passes all seven envelope checks at the boundary → then gets
+   `WRONG_SOURCE`-rejected by the rover. **The system as-built cannot execute an
+   end-to-end authorized remote command.** Known/documented, but now a concrete
+   broken path in real code. **The #1 fix.**
+
+2. **Nonce is in-memory everywhere → a reboot opens a replay window. [all 7]**
+   `CommandValidator._last_nonce` (telemetry) and `_last_nonce_by_source`
+   (locomotion) are plain dicts. A process/rover restart resets the floor to 0;
+   every previously-seen command becomes replayable. The round-1 P0 is now a
+   **live security regression in shipped code**, not a hypothetical.
+
+3. **The failure-data corpus is evaporating *right now*. [Data lake · Pipeline]**
+   Phase 4 emits `FaultReport` (WATCHDOG) with event-time stamps, but nothing
+   persists them — every safe-stop test is a **labeled failure event lost
+   forever**. The 2030 doc said "start the corpus now, you can't backfill"; the
+   window opened the moment Phase 4 shipped, and data is being discarded each run.
+
+### Round-1 P0 status
+
+| P0 | Status now |
+|---|---|
+| Nonce durability | **OPEN** (logic correct, but in-memory — live regression) |
+| Offline-revocation reconnect handshake | **OPEN** (allowlist is load-once JSON) |
+| Edge↔cloud sync contract | **OPEN** (no code) |
+| Edge control-plane cache (keystone) | **OPEN** (allowlist=JSON, nonce=RAM) |
+| "Always-on LoRa e-stop" correction | **PARTIAL** (Phase 4 docs fixed; residual phrasing in the deployment doc) |
+
+### The fix list — small, concrete, shared seams
+
+1. **Command-router re-stamp** — Telemetry re-issues the operator command *as the
+   current lease holder* (`cmd.source = holder`, `cmd.expires_at` from the
+   envelope). Closes the Phase 3↔4 break. *(named #1 by 3 experts)*
+2. **Persist the nonce floor** — fsync per accepted command before the ACK. Closes
+   the live replay regression. *(all 7)*
+3. **`ros2 bag record` into the launch** — start the MCAP failure corpus with zero
+   new infra. *(Data lake + Pipeline)*
+
+**✅ Status — all three applied + verified on Legion (commit `4c8e7ae`):** the
+end-to-end signed operator→rover command now composes (telemetry re-issues as the
+lease holder → Locomotion accepts → rover moved to x=1.45); the per-source nonce
+floor is persisted to an fsync'd file (durable `NonceStore`, 5 unit tests); and
+`command_center.launch.py record:=true` writes an MCAP bag of all `/mark1` topics.
+The root cause and the preventive lesson are in project memory
+(`feedback_verify-integration-restart-persistence`).
+
+Fixes 1 & 2 share the `CommandValidator`/dispatch seam; together they take the
+system from "demo-grade within one uptime" to "survives a reboot + composes
+end-to-end." **Verdict:** "lock contracts, build slots" held up — the contracts
+are the asset; every open issue lives in the swappable implementation layer.
+
+---
+
 **Related:** [Command Center Application Blueprint](Command Center Application Blueprint.md) ·
 [Deployment, Connectivity & Fleet Monitoring](Deployment, Connectivity & Fleet Monitoring.md) ·
+[Mark 1 — 2030 Technology Horizon](../strategy/Mark 1 - 2030 Technology Horizon.md) ·
 [Command Center Protocol Security](../addendums/Command Center Protocol Security.md) ·
 [Mark 1 Index](../Mark 1 Index.md)
