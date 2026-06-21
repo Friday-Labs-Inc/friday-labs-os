@@ -174,9 +174,11 @@ pkill -f 'lib/friday_core_hub/core_hub'
 - **The true 100 ms p99** — that's the ESP32 hardware watchdog over a dedicated
   serial link, validated on hardware-in-the-loop. Sim validates the *logic* + the
   DDS EmergencyStop path; 112 ms here includes the sim watchdog tick.
-- **Command-router routing** — so a Command Center operator command is re-issued
-  internally *as the lease holder* (today the Phase 3 telemetry path stamps the
-  operator id, which Phase 4 would reject — they're integrated in the next slice).
+- ~~**Command-router routing**~~ — ✅ **Done** (commit `4c8e7ae`): the Telemetry
+  agent now re-issues a validated operator command *as the current lease holder*
+  (durable monotonic nonce), so the end-to-end operator→rover path composes and is
+  verified. The per-source nonce floor is also now persisted to disk (a reboot no
+  longer resets replay protection).
 - **Active holding torque** on a slope, and the **LoRa recovery beacon** — hardware.
 
 ---

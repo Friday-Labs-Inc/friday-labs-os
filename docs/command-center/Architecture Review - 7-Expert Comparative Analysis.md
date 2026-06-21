@@ -175,6 +175,14 @@ The control/security **spine rose**; the data/cloud/RF dimensions are **flat**
 3. **`ros2 bag record` into the launch** — start the MCAP failure corpus with zero
    new infra. *(Data lake + Pipeline)*
 
+**✅ Status — all three applied + verified on Legion (commit `4c8e7ae`):** the
+end-to-end signed operator→rover command now composes (telemetry re-issues as the
+lease holder → Locomotion accepts → rover moved to x=1.45); the per-source nonce
+floor is persisted to an fsync'd file (durable `NonceStore`, 5 unit tests); and
+`command_center.launch.py record:=true` writes an MCAP bag of all `/mark1` topics.
+The root cause and the preventive lesson are in project memory
+(`feedback_verify-integration-restart-persistence`).
+
 Fixes 1 & 2 share the `CommandValidator`/dispatch seam; together they take the
 system from "demo-grade within one uptime" to "survives a reboot + composes
 end-to-end." **Verdict:** "lock contracts, build slots" held up — the contracts
