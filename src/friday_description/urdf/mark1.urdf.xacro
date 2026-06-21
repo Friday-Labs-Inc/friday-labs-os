@@ -45,9 +45,10 @@
       <geometry><box size="0.555 0.413 0.220"/></geometry>
     </collision>
     <inertial>
-      <!-- CoM kept LOW (z=0.18, below the rocker pivots at 0.28) for a stable,
-           self-levelling sprung body — heavy components sit low in the real deck. -->
-      <origin xyz="0.05 0 0.18"/>
+      <!-- CoM placed UNDER the rocker pivot line (x=0, the pivots' x) and LOW
+           (z=0.18, below the pivots at 0.28) so the sprung body hangs level and
+           self-centres — heavy components sit low and centred in the real deck. -->
+      <origin xyz="0.0 0 0.18"/>
       <mass value="${body_mass}"/>
       <inertia ixx="0.110" ixy="0" ixz="0" iyy="0.178" iyz="0" izz="0.239"/>
     </inertial>
