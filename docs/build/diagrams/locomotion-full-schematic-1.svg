@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 1680 1188">
+<rect width="1680" height="1188" fill="#ffffff"/>
+<rect x="22" y="22" width="1636" height="1144" fill="none" stroke="#1f3050" stroke-width="2.5" rx="4"/>
+<rect x="22" y="22" width="1636" height="58" fill="#1f3050" rx="4"/>
+<rect x="22" y="74" width="1636" height="6" fill="#20b2a6"/>
+<text x="46" y="58" font-size="16" fill="#9fb0c8" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FRIDAY LABS  -  MARK 1</text>
+<text x="1634" y="50" font-size="21" fill="#ffffff" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Power, Isolation Domains &amp; E-Stop</text>
+<text x="1634" y="71" font-size="12.5" fill="#aebbcf" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Sheet 1 - distribution, galvanic split, fail-open safety</text>
+<rect x="40" y="100" width="640" height="760" fill="#e8f6f2" opacity="0.45" rx="14"/>
+<text x="60" y="124" font-size="13" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">CLEAN DOMAIN  (logic / sensors)</text>
+<rect x="700" y="100" width="600" height="540" fill="#fbeeec" opacity="0.5" rx="14"/>
+<text x="720" y="124" font-size="13" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">MOTOR DOMAIN  (isolated)</text>
+<rect x="700" y="660" width="600" height="200" fill="#fdf4e3" opacity="0.55" rx="14"/>
+<text x="720" y="684" font-size="13" fill="#b9831e" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SERVO DOMAIN  (isolated)</text>
+<rect x="688" y="96" width="2" height="768" rx="0" fill="none" stroke="#6b7484" stroke-width="2.4" stroke-dasharray="10 8"/>
+<text x="694" y="92" font-size="11" fill="#6b7484" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GALVANIC ISOLATION</text>
+<rect x="70" y="150" width="250" height="96" rx="10" fill="#ffffff" stroke="#1f3050" stroke-width="2.4"/>
+<text x="195.0" y="177" font-size="17" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">BACKBONE INPUT</text>
+<text x="195.0" y="197" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">M12 - +14V8_RAW (fused) + GND</text>
+<rect x="380" y="150" width="280" height="110" rx="10" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="520.0" y="177" font-size="17" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">E-STOP CONTACTOR</text>
+<text x="520.0" y="197" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">NC loop coil-enable - FAILS OPEN</text>
+<polyline points="320,198 380,198" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="323" y="173" width="6" height="18" rx="2" fill="#c0493a"/>
+<text x="337" y="187" font-size="13" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_RAW</text>
+<polyline points="660,205 720,205" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="663" y="180" width="6" height="18" rx="2" fill="#c0493a"/>
+<text x="677" y="194" font-size="13" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_SW</text>
+<polyline points="195,246 195,300" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="195" cy="246" r="4.5" fill="#c0493a"/>
+<rect x="70" y="300" width="250" height="98" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="195.0" y="327" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">5V / 3A BUCK</text>
+<text x="195.0" y="347" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">+14V8_RAW -&gt; +5V_CLEAN</text>
+<rect x="70" y="440" width="250" height="90" rx="10" fill="#ffffff" stroke="#179b86" stroke-width="2.4"/>
+<text x="195.0" y="467" font-size="17" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+3V3_CLEAN</text>
+<text x="195.0" y="487" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">via ESP32 onboard LDO (Sheet 2)</text>
+<polyline points="195,398 195,440" fill="none" stroke="#c0493a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="337" y="340" width="6" height="18" rx="2" fill="#179b86"/>
+<text x="351" y="354" font-size="13" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+5V_CLEAN  -&gt; ESP32 (Sheet 2)</text>
+<polyline points="320,349 335,349" fill="none" stroke="#179b86" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="337" y="476" width="6" height="18" rx="2" fill="#179b86"/>
+<text x="351" y="490" font-size="13" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+3V3_CLEAN -&gt; sensors/isolators</text>
+<polyline points="320,485 335,485" fill="none" stroke="#179b86" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="380" y="300" width="280" height="118" rx="10" fill="#ffffff" stroke="#6b7484" stroke-width="2.4"/>
+<text x="520.0" y="327" font-size="17" fill="#6b7484" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">E-STOP SENSE OPTO</text>
+<text x="520.0" y="347" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">LED across +14V8_SW (series R)</text>
+<text x="520" y="372" font-size="12" fill="#27313f" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">phototransistor -&gt; ESTOP_LIVE</text>
+<text x="520" y="392" font-size="11" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">(power -&gt; clean, dedicated opto)</text>
+<path d="M380 400 L366 388 L118 388 L118 412 L366 412 Z" fill="#ffffff" stroke="#6b7484" stroke-width="2"/>
+<text x="364" y="405" font-size="12.5" fill="#6b7484" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ESTOP_LIVE -&gt; ESP32 GPIO39 (Sheet 2)</text>
+<rect x="720" y="150" width="250" height="100" rx="10" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="845.0" y="177" font-size="17" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ISOLATED 5V DC-DC</text>
+<text x="845.0" y="197" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">+14V8_SW -&gt; +5V_ISO</text>
+<text x="845" y="236" font-size="11" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motor-side logic ref</text>
+<rect x="1010" y="150" width="270" height="100" rx="10" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="1145.0" y="177" font-size="17" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">INA219 + SHUNT</text>
+<text x="1145.0" y="197" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motor-bus current sense (Sheet 4)</text>
+<polyline points="970,200 1010,200" fill="none" stroke="#c0493a" stroke-width="2.4" stroke-dasharray="6 5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="720" y="700" width="250" height="100" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="845.0" y="727" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">6V UBEC</text>
+<text x="845.0" y="747" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">+14V8_SW -&gt; +6V_SRV (servo power)</text>
+<rect x="1010" y="700" width="270" height="100" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="1145.0" y="727" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+5V_SRV LDO</text>
+<text x="1145.0" y="747" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">from +6V_SRV (servo logic ref)</text>
+<polyline points="970,750 1010,750" fill="none" stroke="#b9831e" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="690,205 845,205 845,150" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="845,205 845,150" fill="none" stroke="#c0493a" stroke-width="0.1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="690,560 845,560 845,700" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="690" cy="205" r="4.5" fill="#c0493a"/>
+<text x="700" y="548" font-size="11" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_SW -&gt; servo + pawl</text>
+<rect x="1330" y="150" width="250" height="330" rx="8" fill="#ffffff" stroke="#1f3050" stroke-width="2"/>
+<text x="1455" y="176" font-size="14" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">POWER RAILS</text>
+<line x1="1330" y1="188" x2="1580" y2="188" stroke="#c5cfdc" stroke-width="1"/>
+<rect x="1344" y="201" width="6" height="16" rx="2" fill="#c0493a"/>
+<text x="1360" y="215" font-size="12.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_RAW</text>
+<text x="1566" y="215" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">always-on</text>
+<rect x="1344" y="239" width="6" height="16" rx="2" fill="#c0493a"/>
+<text x="1360" y="253" font-size="12.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_SW</text>
+<text x="1566" y="253" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">E-stop cut</text>
+<rect x="1344" y="277" width="6" height="16" rx="2" fill="#179b86"/>
+<text x="1360" y="291" font-size="12.5" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+5V_CLEAN</text>
+<text x="1566" y="291" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">clean</text>
+<rect x="1344" y="315" width="6" height="16" rx="2" fill="#179b86"/>
+<text x="1360" y="329" font-size="12.5" fill="#179b86" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+3V3_CLEAN</text>
+<text x="1566" y="329" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">clean</text>
+<rect x="1344" y="353" width="6" height="16" rx="2" fill="#c0493a"/>
+<text x="1360" y="367" font-size="12.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+5V_ISO</text>
+<text x="1566" y="367" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motor</text>
+<rect x="1344" y="391" width="6" height="16" rx="2" fill="#b9831e"/>
+<text x="1360" y="405" font-size="12.5" fill="#b9831e" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+6V_SRV</text>
+<text x="1566" y="405" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">servo</text>
+<rect x="1344" y="429" width="6" height="16" rx="2" fill="#b9831e"/>
+<text x="1360" y="443" font-size="12.5" fill="#b9831e" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+5V_SRV</text>
+<text x="1566" y="443" font-size="11" fill="#5b6472" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">servo</text>
+<polyline points="820,918 820,929" fill="none" stroke="#27313f" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="807" y1="929" x2="833" y2="929" stroke="#27313f" stroke-width="2.4"/>
+<line x1="812" y1="934" x2="828" y2="934" stroke="#27313f" stroke-width="2.4"/>
+<line x1="816.5" y1="939" x2="823.5" y2="939" stroke="#27313f" stroke-width="2.4"/>
+<text x="820" y="972" font-size="13" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STAR GROUND  (single point at battery negative)</text>
+<polyline points="300,880 300,918 820,918" fill="none" stroke="#179b86" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="297" y="868" width="6" height="14" fill="#179b86"/>
+<text x="300" y="856" font-size="12" fill="#179b86" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GND_CLEAN</text>
+<polyline points="820,880 820,918 820,918" fill="none" stroke="#c0493a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="817" y="868" width="6" height="14" fill="#c0493a"/>
+<text x="820" y="856" font-size="12" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GND_MOTOR</text>
+<polyline points="1340,880 1340,918 820,918" fill="none" stroke="#b9831e" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1337" y="868" width="6" height="14" fill="#b9831e"/>
+<text x="1340" y="856" font-size="12" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">GND_SRV</text>
+<circle cx="820" cy="918" r="6" fill="#27313f"/>
+<text x="60" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">LEGEND</text>
+<line x1="138" y1="1118" x2="172" y2="1118" stroke="#c0493a" stroke-width="3.5"/>
+<text x="180" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">power</text>
+<line x1="256" y1="1118" x2="290" y2="1118" stroke="#179b86" stroke-width="3.5"/>
+<text x="298" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">clean rail</text>
+<line x1="414" y1="1118" x2="448" y2="1118" stroke="#c0493a" stroke-width="3.5"/>
+<text x="456" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motor</text>
+<line x1="532" y1="1118" x2="566" y2="1118" stroke="#b9831e" stroke-width="3.5"/>
+<text x="574" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">servo</text>
+<line x1="650" y1="1118" x2="684" y2="1118" stroke="#6b7484" stroke-width="3.5"/>
+<text x="692" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">isolation</text>
+<rect x="1180" y="1066" width="470" height="92" rx="6" fill="#ffffff" stroke="#1f3050" stroke-width="2"/>
+<line x1="1180" y1="1100" x2="1650" y2="1100" stroke="#1f3050" stroke-width="1.2"/>
+<line x1="1500" y1="1066" x2="1500" y2="1158" stroke="#1f3050" stroke-width="1.2"/>
+<text x="1194" y="1089" font-size="14" fill="#1f3050" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Mark 1 - Locomotion Control Unit</text>
+<text x="1194" y="1120" font-size="15" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Power, Isolation &amp; E-Stop</text>
+<text x="1194" y="1142" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Friday Labs Inc. - Design stage - schematic per netlist Draft 1.0</text>
+<text x="1575" y="1089" font-size="10.5" fill="#20b2a6" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FULL SCHEMATIC</text>
+<text x="1575" y="1123" font-size="17" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SHEET 1/4</text>
+<text x="1575" y="1144" font-size="10.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Rev A - 2026</text>
+</svg>

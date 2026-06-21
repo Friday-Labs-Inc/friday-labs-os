@@ -9,7 +9,16 @@ This is a **net-level** schematic: signals, nets, device terminals, and passive 
 
 ## Diagrams
 
-Standalone, theme-adaptive SVGs (render on GitHub light/dark and in any editor):
+**Full schematic set (print-ready):** [Locomotion Deck - Full Schematic.pdf](Locomotion Deck - Full Schematic.pdf) — the entire deck drawn out, A3 landscape, 4 sheets, vector (zoomable, selectable text):
+
+1. **Power, Isolation Domains & E-Stop** — distribution tree, the three galvanically-isolated domains, fail-open contactor, E-stop opto sense, star ground.
+2. **Controller, I²C Sensors & Isolation Bank** — full ESP32-S3 pinout, the TCA9548A mux → 6× AS5600 + BNO085 tree, ISO1640-isolated INA219, USB/LED.
+3. **Drive Subsystem — 6 channels fully expanded** — ESP32 → ISO7741 ×3 → MDD10A ×3 → 6 drive motors, with motor-side fail-safe pull-downs.
+4. **Steering, Parking Pawls & Current Sense** — ISO7741 #4 → 4 steer servos, ISO7741 #5 → power-to-release pawl driver, motor-bus shunt + INA219.
+
+Source sheets: `diagrams/locomotion-full-schematic-1..4.svg` (regenerate with `tools/` build script).
+
+Per-block, theme-adaptive SVGs (render on GitHub light/dark and in any editor):
 
 - **Deck wiring (block):** ![Locomotion deck wiring diagram](diagrams/locomotion-deck-wiring.svg)
 - **Drive channel — repeats ×6:** ![Drive channel pin-level schematic](diagrams/locomotion-drive-channel.svg)

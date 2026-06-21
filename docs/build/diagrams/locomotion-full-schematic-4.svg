@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="297mm" viewBox="0 0 1680 1188">
+<rect width="1680" height="1188" fill="#ffffff"/>
+<rect x="22" y="22" width="1636" height="1144" fill="none" stroke="#1f3050" stroke-width="2.5" rx="4"/>
+<rect x="22" y="22" width="1636" height="58" fill="#1f3050" rx="4"/>
+<rect x="22" y="74" width="1636" height="6" fill="#20b2a6"/>
+<text x="46" y="58" font-size="16" fill="#9fb0c8" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FRIDAY LABS  -  MARK 1</text>
+<text x="1634" y="50" font-size="21" fill="#ffffff" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Steering, Parking Pawls &amp; Current Sense</text>
+<text x="1634" y="71" font-size="12.5" fill="#aebbcf" text-anchor="end" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Sheet 4 - 4 steer servos, power-to-release pawls, motor-bus INA219</text>
+<rect x="640" y="100" width="960" height="360" fill="#fdf4e3" opacity="0.5" rx="14"/>
+<text x="660" y="124" font-size="12.5" fill="#b9831e" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SERVO DOMAIN  (isolated)  -  +6V_SRV / +5V_SRV / GND_SRV</text>
+<rect x="700" y="170" width="200" height="150" rx="10" fill="#ffffff" stroke="#6b7484" stroke-width="2.4"/>
+<text x="800.0" y="197" font-size="17" fill="#6b7484" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ISO7741 #4</text>
+<text x="800.0" y="217" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">clean -&gt; servo</text>
+<path d="M560 245 L546 233 L403 233 L403 257 L546 257 Z" fill="#ffffff" stroke="#b9831e" stroke-width="2"/>
+<text x="544" y="250" font-size="12.5" fill="#b9831e" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SRV_PWM1..4 (Sheet 2)</text>
+<polyline points="560,245 700,245" fill="none" stroke="#b9831e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,200 1000,200" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,230 1000,230" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,260 1000,260" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,290 1000,290" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1010" y="150" width="300" height="60" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="1160.0" y="177" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STEER SERVO 1</text>
+<text x="1160.0" y="197" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DS3218 - signal SRV1 - V+ +6V_SRV - GND_SRV</text>
+<polyline points="900,200 900,200" fill="none" stroke="#b9831e" stroke-width="0.1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,200 1010,180" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1010" y="224" width="300" height="60" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="1160.0" y="251" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STEER SERVO 2</text>
+<text x="1160.0" y="271" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DS3218 - signal SRV2 - V+ +6V_SRV - GND_SRV</text>
+<polyline points="900,230 900,230" fill="none" stroke="#b9831e" stroke-width="0.1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,230 1010,254" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1010" y="298" width="300" height="60" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="1160.0" y="325" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STEER SERVO 3</text>
+<text x="1160.0" y="345" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DS3218 - signal SRV3 - V+ +6V_SRV - GND_SRV</text>
+<polyline points="900,260 900,260" fill="none" stroke="#b9831e" stroke-width="0.1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,260 1010,328" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="1010" y="372" width="300" height="60" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="2.4"/>
+<text x="1160.0" y="399" font-size="17" fill="#b9831e" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">STEER SERVO 4</text>
+<text x="1160.0" y="419" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">DS3218 - signal SRV4 - V+ +6V_SRV - GND_SRV</text>
+<polyline points="900,290 900,290" fill="none" stroke="#b9831e" stroke-width="0.1" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,290 1010,402" fill="none" stroke="#b9831e" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="640" y="490" width="960" height="370" fill="#fbeeec" opacity="0.45" rx="14"/>
+<text x="660" y="514" font-size="12.5" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PARKING PAWLS  (motor domain)  -  power-to-release</text>
+<rect x="700" y="560" width="200" height="140" rx="10" fill="#ffffff" stroke="#6b7484" stroke-width="2.4"/>
+<text x="800.0" y="587" font-size="17" fill="#6b7484" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">ISO7741 #5</text>
+<text x="800.0" y="607" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">clean -&gt; motor (+3 spare ch)</text>
+<path d="M560 630 L546 618 L424 618 L424 642 L546 642 Z" fill="#ffffff" stroke="#c0493a" stroke-width="2"/>
+<text x="544" y="635" font-size="12.5" fill="#c0493a" text-anchor="end" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL_REL (Sheet 2)</text>
+<polyline points="560,630 700,630" fill="none" stroke="#c0493a" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="900,630 990,630" fill="none" stroke="#c0493a" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="945" y="620" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">100R</text>
+<rect x="1000" y="600" width="140" height="90" rx="8" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="1070" y="634" font-size="14" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">N-MOSFET</text>
+<text x="1070" y="654" font-size="11" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">low-side</text>
+<text x="1070" y="672" font-size="9.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">gate 10k -&gt; GND_MOTOR</text>
+<polyline points="990,630 990,710 1070,710" fill="none" stroke="#c0493a" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="945" y="690" font-size="9.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">10k pull-down</text>
+<polyline points="1070,712 1070,723" fill="none" stroke="#27313f" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="1057" y1="723" x2="1083" y2="723" stroke="#27313f" stroke-width="2.4"/>
+<line x1="1062" y1="728" x2="1078" y2="728" stroke="#27313f" stroke-width="2.4"/>
+<line x1="1066.5" y1="733" x2="1073.5" y2="733" stroke="#27313f" stroke-width="2.4"/>
+<rect x="1200" y="540" width="6" height="280" fill="#c0493a" opacity="0.6"/>
+<text x="1212" y="556" font-size="11" fill="#c0493a" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_SW</text>
+<polyline points="1140,645 1175,645 1175,760" fill="none" stroke="#c0493a" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1100" y="640" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">drain</text>
+<rect x="1300" y="600" width="44" height="84" rx="6" fill="#ffffff" stroke="#c0493a" stroke-width="2.2"/>
+<text x="1322" y="634" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL</text>
+<text x="1322" y="650" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">sol 1</text>
+<polyline points="1322,600 1322,560 1203,560" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1322,684 1322,760 1175,760" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1286 630 l0 24 l12 -12 Z" fill="none" stroke="#5b6472" stroke-width="1.8"/>
+<line x1="1298" y1="630" x2="1298" y2="654" stroke="#5b6472" stroke-width="1.8"/>
+<rect x="1370" y="600" width="44" height="84" rx="6" fill="#ffffff" stroke="#c0493a" stroke-width="2.2"/>
+<text x="1392" y="634" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL</text>
+<text x="1392" y="650" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">sol 2</text>
+<polyline points="1392,600 1392,560 1203,560" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1392,684 1392,760 1175,760" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1356 630 l0 24 l12 -12 Z" fill="none" stroke="#5b6472" stroke-width="1.8"/>
+<line x1="1368" y1="630" x2="1368" y2="654" stroke="#5b6472" stroke-width="1.8"/>
+<rect x="1440" y="600" width="44" height="84" rx="6" fill="#ffffff" stroke="#c0493a" stroke-width="2.2"/>
+<text x="1462" y="634" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL</text>
+<text x="1462" y="650" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">sol 3</text>
+<polyline points="1462,600 1462,560 1203,560" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1462,684 1462,760 1175,760" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1426 630 l0 24 l12 -12 Z" fill="none" stroke="#5b6472" stroke-width="1.8"/>
+<line x1="1438" y1="630" x2="1438" y2="654" stroke="#5b6472" stroke-width="1.8"/>
+<rect x="1510" y="600" width="44" height="84" rx="6" fill="#ffffff" stroke="#c0493a" stroke-width="2.2"/>
+<text x="1532" y="634" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">PAWL</text>
+<text x="1532" y="650" font-size="10" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">sol 4</text>
+<polyline points="1532,600 1532,560 1203,560" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1532,684 1532,760 1175,760" fill="none" stroke="#c0493a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1496 630 l0 24 l12 -12 Z" fill="none" stroke="#5b6472" stroke-width="1.8"/>
+<line x1="1508" y1="630" x2="1508" y2="654" stroke="#5b6472" stroke-width="1.8"/>
+<circle cx="1175" cy="760" r="4.5" fill="#c0493a"/>
+<circle cx="1203" cy="560" r="4.5" fill="#c0493a"/>
+<text x="1300" y="720" font-size="11" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">4 solenoids paralleled - flyback diode across each coil</text>
+<rect x="60" y="150" width="520" height="250" rx="8" fill="#ffffff" stroke="#c0493a" stroke-width="2"/>
+<text x="320" y="178" font-size="14" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">MOTOR-BUS CURRENT SENSE</text>
+<line x1="60" y1="190" x2="580" y2="190" stroke="#c5cfdc" stroke-width="1"/>
+<text x="80" y="222" font-size="11.5" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Shunt in series with the +14V8_SW motor feed;</text>
+<text x="80" y="244" font-size="11.5" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">INA219 (0x40) reads it, VS = +5V_ISO.</text>
+<text x="80" y="266" font-size="11.5" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">I2C reaches the clean domain only through ISO1640</text>
+<text x="80" y="288" font-size="11.5" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">(Sheet 2) - the sense path is galvanically isolated.</text>
+<polyline points="120,340 190,340" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="190" y="330" width="60" height="20" fill="none" stroke="#c0493a" stroke-width="2.2"/>
+<text x="220" y="326" font-size="9.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">SHUNT</text>
+<polyline points="250,340 330,340" fill="none" stroke="#c0493a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="150" y="330" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">+14V8_SW</text>
+<text x="300" y="330" font-size="10" fill="#c0493a" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">-&gt; MDD10A</text>
+<rect x="360" y="310" width="200" height="70" rx="10" fill="#ffffff" stroke="#c0493a" stroke-width="2.4"/>
+<text x="460.0" y="337" font-size="17" fill="#c0493a" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">INA219</text>
+<text x="460.0" y="357" font-size="12" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">0x40 - VS +5V_ISO</text>
+<polyline points="220,350 220,375 360,375" fill="none" stroke="#2563b0" stroke-width="2.2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="60" y="470" width="520" height="150" rx="8" fill="#eef3f9" stroke="#1f3050" stroke-width="1.6"/>
+<text x="72" y="496" font-size="13" fill="#1f3050" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FAIL-SAFE SUMMARY</text>
+<text x="72" y="522" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">- Lost PAWL_REL / dead ISO#5 -&gt; gate 10k pull-down -&gt; solenoids</text>
+<text x="72" y="542" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">  de-energize -&gt; PAWLS ENGAGE (power-to-release).</text>
+<text x="72" y="566" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">- E-stop removes +14V8_SW -&gt; servos unpowered + pawls engage.</text>
+<text x="72" y="590" font-size="11" fill="#27313f" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">- ISO7741 #5 has 3 spare channels for future actuators.</text>
+<text x="60" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">LEGEND</text>
+<line x1="138" y1="1118" x2="172" y2="1118" stroke="#b9831e" stroke-width="3.5"/>
+<text x="180" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">servo signal</text>
+<line x1="312" y1="1118" x2="346" y2="1118" stroke="#c0493a" stroke-width="3.5"/>
+<text x="354" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">motor</text>
+<line x1="430" y1="1118" x2="464" y2="1118" stroke="#c0493a" stroke-width="3.5"/>
+<text x="472" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">power</text>
+<line x1="548" y1="1118" x2="582" y2="1118" stroke="#2563b0" stroke-width="3.5"/>
+<text x="590" y="1122" font-size="12" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">I2C</text>
+<rect x="1180" y="1066" width="470" height="92" rx="6" fill="#ffffff" stroke="#1f3050" stroke-width="2"/>
+<line x1="1180" y1="1100" x2="1650" y2="1100" stroke="#1f3050" stroke-width="1.2"/>
+<line x1="1500" y1="1066" x2="1500" y2="1158" stroke="#1f3050" stroke-width="1.2"/>
+<text x="1194" y="1089" font-size="14" fill="#1f3050" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Mark 1 - Locomotion Control Unit</text>
+<text x="1194" y="1120" font-size="15" fill="#27313f" text-anchor="start" font-weight="bold" font-family="Arial, Helvetica, sans-serif">Steering, Pawls &amp; Current Sense</text>
+<text x="1194" y="1142" font-size="10.5" fill="#5b6472" text-anchor="start" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Friday Labs Inc. - Design stage - schematic per netlist Draft 1.0</text>
+<text x="1575" y="1089" font-size="10.5" fill="#20b2a6" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">FULL SCHEMATIC</text>
+<text x="1575" y="1123" font-size="17" fill="#1f3050" text-anchor="middle" font-weight="bold" font-family="Arial, Helvetica, sans-serif">SHEET 4/4</text>
+<text x="1575" y="1144" font-size="10.5" fill="#5b6472" text-anchor="middle" font-weight="normal" font-family="Arial, Helvetica, sans-serif">Rev A - 2026</text>
+</svg>
