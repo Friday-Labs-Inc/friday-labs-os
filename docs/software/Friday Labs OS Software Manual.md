@@ -22,8 +22,8 @@
    phase*: the big picture, where the code lives, how to build and run it, the
    debugging toolkit, and a plain-language glossary.
 2. **Then read the chapters** in order (Section 7) — they're a story:
-   **Phase 0 (Genesis)** → **Phase 2 (Walking Skeleton)** → onward. Each chapter
-   is a self-contained walk-through.
+   **Phase 0 (Genesis)** → **Phase 2 (Walking Skeleton)** → **Phase 3 (Closed-Loop
+   Motion)** → onward. Each chapter is a self-contained walk-through.
 3. **New to ROS 2?** Every technical word is in the **Glossary** (Section 6).
 
 Each chapter follows the same template, so once you've read one you know how to
@@ -186,6 +186,10 @@ phase's specific failure modes.
 | **colcon** | The tool that builds the workspace. |
 | **micro-ROS** | The lightweight ROS used on tiny chips (ESP32), added later. |
 | **Gazebo** | The 3-D physics simulator (used from Phase/Stage with a body model). |
+| **MotionCommand** | Our message telling the wheels what to do (speed + turn rate). |
+| **Odometry** | Standard ROS message: "here's where I am and how fast I'm going." |
+| **odom frame** | The map-like coordinate system Locomotion reports position in. |
+| **Motion model** | Math that turns a drive command into an updated position. |
 
 ---
 
@@ -200,7 +204,7 @@ dossier's 5-phase roadmap and the seven-stage sim bring-up.)
 | **0 — Genesis** | How the codebase begins: from an empty folder to the first line of code (`uint8 protocol_major`) to the first program that runs. Read this first. | ✅ Complete | [Phase 0 — Genesis: The First Line of Code](Phase 0 - Genesis - The First Line of Code.md) |
 | **1 — Design foundation** | The architecture, the shared `friday_msgs` contract, QoS policy, and safety model — on paper, locked. | ✅ Complete | The dossier — start at [Mark 1 Index](../Mark 1 Index.md) |
 | **2 — Walking skeleton** | Parts find each other, start up in order (lifecycle), and are watched by heartbeat. The spine everything bolts onto. | ✅ Complete | [Phase 2 — The Walking Skeleton](Phase 2 - Walking Skeleton.md) |
-| **3 — Communication** | Real data flowing: modules ↔ OS ↔ Command Center, including the external (non-ROS) boundary. | ⏳ Planned | _added when implemented_ |
+| **3 — Communication** | Real data flowing: closed-loop motion (`MotionCommand` → `Odometry`) ✅; the Command Center boundary (modules ↔ OS ↔ remote operator) ⏳. | 🔄 In progress | [Phase 3 — Closed-Loop Motion](Phase 3 - Closed-Loop Motion.md) |
 | **4 — Safety** | Heartbeat-loss → failover, the 100 ms safe-stop, recovery, and the emergency beacon. | ⏳ Planned | _added when implemented_ |
 | **5 — Autonomy & missions** | Mission planning, sensor fusion, mapping, and Spark coordination. | ⏳ Planned | _added when implemented_ |
 
