@@ -13,13 +13,19 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
+    DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
     TimerAction,
 )
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command
+from launch.substitutions import (
+    Command,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    TextSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -30,7 +36,7 @@ def generate_launch_description() -> LaunchDescription:
 
     xacro_file = os.path.join(pkg, 'urdf', 'mark1.urdf.xacro')
     controllers_yaml = os.path.join(pkg, 'config', 'diff_drive_controller.yaml')
-    world_file = os.path.join(pkg, 'worlds', 'empty_ground.sdf')
+    world_path = PathJoinSubstitution([pkg, 'worlds', LaunchConfiguration('world')])
 
     robot_description = ParameterValue(
         Command(['xacro ', xacro_file, ' controllers_yaml:=', controllers_yaml],
@@ -41,7 +47,8 @@ def generate_launch_description() -> LaunchDescription:
     gz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': f'-r -s -v1 {world_file}'}.items(),
+        launch_arguments={'gz_args': [TextSubstitution(text='-r -s -v1 '),
+                                      world_path]}.items(),
     )
 
     rsp = Node(
@@ -79,5 +86,7 @@ def generate_launch_description() -> LaunchDescription:
         OnProcessExit(target_action=jsb, on_exit=[ddc]))
 
     return LaunchDescription([
+        DeclareLaunchArgument('world', default_value='empty_ground.sdf',
+                              description='world file in friday_description/worlds'),
         gz, rsp, bridge, spawn, load_after_spawn, load_ddc_after_jsb,
     ])
