@@ -18,6 +18,7 @@ from launch.actions import (
     RegisterEventHandler,
     TimerAction,
 )
+from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import (
@@ -43,13 +44,18 @@ def generate_launch_description() -> LaunchDescription:
                 on_stderr='ignore'),
         value_type=str)
 
-    # Gazebo Harmonic, headless server (-s), run immediately (-r), low verbosity.
-    gz = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(ros_gz_sim, 'launch', 'gz_sim.launch.py')),
+    # Gazebo Harmonic. headless:=true -> server only (-s); false -> open the GUI.
+    gz_src = PythonLaunchDescriptionSource(
+        os.path.join(ros_gz_sim, 'launch', 'gz_sim.launch.py'))
+    headless = LaunchConfiguration('headless')
+    gz_headless = IncludeLaunchDescription(
+        gz_src, condition=IfCondition(headless),
         launch_arguments={'gz_args': [TextSubstitution(text='-r -s -v1 '),
-                                      world_path]}.items(),
-    )
+                                      world_path]}.items())
+    gz_gui = IncludeLaunchDescription(
+        gz_src, condition=UnlessCondition(headless),
+        launch_arguments={'gz_args': [TextSubstitution(text='-r -v1 '),
+                                      world_path]}.items())
 
     rsp = Node(
         package='robot_state_publisher', executable='robot_state_publisher',
@@ -88,5 +94,7 @@ def generate_launch_description() -> LaunchDescription:
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_ground.sdf',
                               description='world file in friday_description/worlds'),
-        gz, rsp, bridge, spawn, load_after_spawn, load_ddc_after_jsb,
+        DeclareLaunchArgument('headless', default_value='true',
+                              description='true = server only; false = open the Gazebo GUI'),
+        gz_headless, gz_gui, rsp, bridge, spawn, load_after_spawn, load_ddc_after_jsb,
     ])
