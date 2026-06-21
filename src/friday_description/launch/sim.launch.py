@@ -21,6 +21,7 @@ from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -31,8 +32,9 @@ def generate_launch_description() -> LaunchDescription:
     controllers_yaml = os.path.join(pkg, 'config', 'diff_drive_controller.yaml')
     world_file = os.path.join(pkg, 'worlds', 'empty_ground.sdf')
 
-    robot_description = Command(
-        ['xacro ', xacro_file, ' controllers_yaml:=', controllers_yaml])
+    robot_description = ParameterValue(
+        Command(['xacro ', xacro_file, ' controllers_yaml:=', controllers_yaml]),
+        value_type=str)
 
     # Gazebo Harmonic, headless server (-s), run immediately (-r), low verbosity.
     gz = IncludeLaunchDescription(
