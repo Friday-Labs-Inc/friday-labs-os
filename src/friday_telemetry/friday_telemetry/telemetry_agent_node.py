@@ -29,12 +29,15 @@ import rclpy
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from rclpy.executors import MultiThreadedExecutor
 
-from friday_msgs.msg import FaultReport, MotionCommand
+from friday_msgs.msg import AuthorityLease, FaultReport, MotionCommand
 from friday_module_agent import qos
 from friday_module_agent.module_agent import ModuleAgent
+from friday_module_agent.nonce_store import NonceStore
 
 from friday_telemetry import protocol
 from friday_telemetry.transport import MqttTransport
+
+AUTHORITY_TOPIC = '/mark1/system/authority'
 
 LOCOMOTION_CMD_TOPIC = '/mark1/locomotion/cmd_motion'
 FAULT_TOPIC = '/mark1/telemetry/fault'
@@ -56,11 +59,15 @@ class TelemetryAgent(ModuleAgent):
         self.declare_parameter('mqtt_host', '127.0.0.1')
         self.declare_parameter('mqtt_port', 1883)
         self.declare_parameter('operators_file', '')
+        self.declare_parameter('nonce_store', '')
 
         self._rover_id = self.get_parameter('rover_id').value
         self._inbound = queue.Queue()
         self._transport = None
         self._validator = None
+        self._nonce_store = None
+        self._authority_holder = ''       # tracked from /mark1/system/authority
+        self._authority_sub = None
         self._motion_pub = None
         self._fault_pub = None
         self._drain_timer = None
@@ -71,10 +78,13 @@ class TelemetryAgent(ModuleAgent):
             MotionCommand, LOCOMOTION_CMD_TOPIC, qos.critical_reliable())
         self._fault_pub = self.create_lifecycle_publisher(
             FaultReport, FAULT_TOPIC, qos.state_default())
+        self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
         self._validator = protocol.CommandValidator(
             rover_id=self._rover_id,
             operator_keys=self._load_operator_allowlist(),
-            now=time.time)
+            now=time.time, nonce_store=self._nonce_store)
+        self._authority_sub = self.create_subscription(
+            AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable())
         self._transport = MqttTransport(
             host=self.get_parameter('mqtt_host').value,
             port=int(self.get_parameter('mqtt_port').value),
@@ -155,14 +165,33 @@ class TelemetryAgent(ModuleAgent):
         cmd.linear_velocity = float(p.get('linear_velocity', 0.0))
         cmd.angular_velocity = float(p.get('angular_velocity', 0.0))
         cmd.steer_angle_rad = float(p.get('steer_angle_rad', 0.0))
-        # authority provenance from the validated envelope (enforced internally in Phase 4)
-        cmd.source = envelope.get('sender_id', '')
-        cmd.nonce = int(envelope.get('nonce', 0))
-        cmd.expires_at = self.get_clock().now().to_msg()
+        # COMMAND-ROUTER: re-issue the operator's command AS the current authority
+        # lease holder (Locomotion only obeys the holder). The operator id is kept
+        # for the audit log, not as the command source. Carry the operator's expiry.
+        operator = envelope.get('sender_id', '?')
+        if not self._authority_holder:
+            self.get_logger().warning('no authority holder known yet; command dropped')
+            return
+        cmd.source = self._authority_holder
+        cmd.nonce = self._next_issued_nonce(self._authority_holder)
+        exp = float(envelope.get('expires_at', 0.0))
+        cmd.expires_at.sec = int(exp)
+        cmd.expires_at.nanosec = int((exp - int(exp)) * 1e9)
         self._motion_pub.publish(cmd)
         self.get_logger().info(
-            f'ACCEPTED motion from {cmd.source} (nonce {cmd.nonce}) '
-            f'-> v={cmd.linear_velocity:.2f} w={cmd.angular_velocity:.2f}')
+            f'ACCEPTED motion from operator {operator} -> re-issued as '
+            f'{cmd.source} (nonce {cmd.nonce}) v={cmd.linear_velocity:.2f} '
+            f'w={cmd.angular_velocity:.2f}')
+
+    def _on_authority(self, msg: AuthorityLease) -> None:
+        self._authority_holder = msg.holder_module_id
+
+    def _next_issued_nonce(self, holder: str) -> int:
+        # Durable monotonic nonce for commands issued as the holder, so a Telemetry
+        # restart can't replay-collide with Locomotion's persisted nonce floor.
+        n = (self._nonce_store.last(holder) or 0) + 1
+        self._nonce_store.commit(holder, n)
+        return n
 
     def _report_rejection(self, category: str, reason: str, envelope) -> None:
         sender = envelope.get('sender_id', '?') if envelope else '?'

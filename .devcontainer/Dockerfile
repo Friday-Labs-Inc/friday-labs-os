@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-jazzy-lifecycle-msgs \
       ros-jazzy-launch \
       ros-jazzy-launch-ros \
+      ros-jazzy-rosbag2-storage-mcap \
       git \
       mosquitto \
       mosquitto-clients \

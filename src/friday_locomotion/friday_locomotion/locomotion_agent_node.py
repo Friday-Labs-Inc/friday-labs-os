@@ -33,6 +33,7 @@ from friday_msgs.msg import (
 )
 from friday_module_agent import qos
 from friday_module_agent.module_agent import ModuleAgent
+from friday_module_agent.nonce_store import NonceStore
 
 from friday_locomotion import safety
 
@@ -73,7 +74,8 @@ class LocomotionAgent(ModuleAgent):
         self._holder = ''
         self._lease_expiry_s = 0.0
         self._epoch = 0
-        self._last_nonce_by_source = {}
+        self.declare_parameter('nonce_store', '')
+        self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
@@ -144,7 +146,7 @@ class LocomotionAgent(ModuleAgent):
         decision = safety.authorize(
             source=msg.source, nonce=msg.nonce, cmd_expires_s=_t2s(msg.expires_at),
             holder=self._holder, lease_expires_s=self._lease_expiry_s,
-            last_nonce=self._last_nonce_by_source.get(msg.source),
+            last_nonce=self._nonce_store.last(msg.source),
             now_s=now_s, in_safe_state=self._safe_state)
         if not decision.accepted:
             self._publish_fault(
@@ -155,7 +157,7 @@ class LocomotionAgent(ModuleAgent):
             self.get_logger().warning(
                 f'REJECT motion: {decision.reason} (src={msg.source} nonce={msg.nonce})')
             return
-        self._last_nonce_by_source[msg.source] = msg.nonce
+        self._nonce_store.commit(msg.source, msg.nonce)
         if msg.type == MotionCommand.TYPE_VELOCITY:
             self._v, self._w = msg.linear_velocity, msg.angular_velocity
         else:
