@@ -28,7 +28,7 @@
 <rect x="476" y="162" width="396" height="100" rx="9" fill="#ffffff" stroke="#2a4066" stroke-width="2"/>
 <text x="674" y="190" font-size="14.5" font-weight="bold" fill="#2a4066" text-anchor="middle">Live Ops Console (SPA)</text>
 <text x="674" y="212" font-size="12" fill="#5b6472" text-anchor="middle">React/Vue: live map, telemetry, health,</text>
-<text x="674" y="230" font-size="12" fill="#5b6472" text-anchor="middle">command console, fault/security alerts, video.</text>
+<text x="674" y="230" font-size="12" fill="#5b6472" text-anchor="middle">command console + alerts · Foxglove (3D/telemetry/replay)</text>
 <text x="674" y="251" font-size="11" fill="#5b6472" text-anchor="middle">WebSocket (live) + REST (records)</text>
 
 <!-- ===================== CONTROL PLANE (FRAPPE) ===================== -->
@@ -51,12 +51,13 @@
 <text x="82" y="526" font-size="12" fill="#5b6472">Exposes REST API to the SPA and the bridge service.</text>
 <!-- DB -->
 <rect x="700" y="336" width="172" height="208" rx="9" fill="#ffffff" stroke="#179b86" stroke-width="2"/>
-<text x="786" y="360" font-size="13.5" font-weight="bold" fill="#179b86" text-anchor="middle">Data store</text>
-<text x="786" y="392" font-size="12" fill="#5b6472" text-anchor="middle">MariaDB</text>
-<text x="786" y="414" font-size="12" fill="#5b6472" text-anchor="middle">(records + audit)</text>
-<text x="786" y="452" font-size="12" fill="#5b6472" text-anchor="middle">Redis</text>
-<text x="786" y="474" font-size="12" fill="#5b6472" text-anchor="middle">(cache + queue +</text>
-<text x="786" y="492" font-size="12" fill="#5b6472" text-anchor="middle">socket.io)</text>
+<text x="786" y="358" font-size="13.5" font-weight="bold" fill="#179b86" text-anchor="middle">Data store</text>
+<text x="786" y="386" font-size="11.5" fill="#5b6472" text-anchor="middle">MariaDB</text>
+<text x="786" y="403" font-size="10.5" fill="#5b6472" text-anchor="middle">records + audit</text>
+<text x="786" y="432" font-size="11.5" font-weight="bold" fill="#b9831e" text-anchor="middle">TimescaleDB</text>
+<text x="786" y="449" font-size="10" fill="#5b6472" text-anchor="middle">telemetry (time-series)</text>
+<text x="786" y="478" font-size="11.5" fill="#5b6472" text-anchor="middle">Redis</text>
+<text x="786" y="495" font-size="10.5" fill="#5b6472" text-anchor="middle">cache / queue</text>
 
 <!-- ===================== DATA PLANE ===================== -->
 <rect x="44" y="584" width="848" height="252" rx="12" fill="#fdf4e3"/>
@@ -72,11 +73,11 @@
 <rect x="508" y="620" width="364" height="198" rx="9" fill="#ffffff" stroke="#b9831e" stroke-width="2.2"/>
 <text x="690" y="646" font-size="14.5" font-weight="bold" fill="#b9831e" text-anchor="middle">Command Signing</text>
 <text x="690" y="674" font-size="12" fill="#27313f" text-anchor="middle">Ed25519 over (payload‖nonce‖rover‖expiry)</text>
-<text x="524" y="702" font-size="12" font-weight="bold" fill="#178a80">Recommended: client-side</text>
-<text x="524" y="720" font-size="11.5" fill="#5b6472">operator signs in browser via WebAuthn /</text>
-<text x="524" y="737" font-size="11.5" fill="#5b6472">YubiKey; private key never hits the server.</text>
-<text x="524" y="762" font-size="12" font-weight="bold" fill="#5b6472">Alt: server-side HSM signing service</text>
-<text x="524" y="779" font-size="11.5" fill="#5b6472">(simpler UX, higher trust in the server).</text>
+<text x="524" y="700" font-size="11.5" font-weight="bold" fill="#178a80">Login: OIDC + WebAuthn / MFA</text>
+<text x="524" y="722" font-size="11.5" font-weight="bold" fill="#178a80">Sign: local HSM / PKCS#11 agent (YubiKey PIV)</text>
+<text x="524" y="739" font-size="11" fill="#5b6472">— private key never reaches the server</text>
+<text x="524" y="764" font-size="11.5" font-weight="bold" fill="#5b6472">Alt: server-side HSM signing service</text>
+<text x="524" y="781" font-size="11" fill="#5b6472">(simpler UX, bigger blast radius)</text>
 <text x="690" y="803" font-size="11" fill="#b9831e" text-anchor="middle">Control plane assigns nonce + checks allowlist</text>
 
 <!-- inter-plane links -->
@@ -131,6 +132,7 @@
 <text x="1140" y="500" font-size="11.5" font-weight="bold" fill="#178a80" text-anchor="end">telemetry / ack (tlm/ ack/)</text>
 <path d="M936 470 L860 470 L860 705 L724 705" fill="none" stroke="#179b86" stroke-width="2.6" marker-end="url(#arT)"/>
 
+<text x="60" y="850" font-size="11.5" font-weight="bold" fill="#178a80">v2 adds: TimescaleDB telemetry · Foxglove viz · Observability (OTel/Grafana) · AI copilot (drafts; human signs) · evaluate Zenoh / NATS</text>
 <!-- legend -->
 <rect x="44" y="858" width="1102" height="58" rx="9" fill="#f4f7fb" stroke="#d9e0ea"/>
 <text x="62" y="882" font-size="12" font-weight="bold" fill="#5b6472">LEGEND</text>

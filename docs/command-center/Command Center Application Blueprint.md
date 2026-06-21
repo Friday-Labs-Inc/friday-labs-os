@@ -84,18 +84,25 @@ Every command is an **Ed25519 signature over `(payload‖nonce‖rover_id‖expi
 (the contract the rover already enforces). The question is **where the private key
 lives**:
 
-- **Recommended — client-side signing.** The operator signs in the browser via
-  **WebAuthn / a hardware key (YubiKey-class)** or a local signing agent; the
-  private key **never leaves their workstation/HSM** (exactly what the security
-  spec demands). The control plane assigns the nonce and checks the allowlist; the
-  bridge just relays the already-signed envelope.
-- **Alternative — server-side HSM signing service.** A dedicated microservice
-  holds operator keys in an HSM and signs on authenticated request. Simpler UX,
-  but the server *can* sign — a higher trust assumption and a bigger blast radius
-  if breached.
+> **Correction (second pass): operator *login* and command *signing* are
+> different keys — don't conflate them.** WebAuthn/passkeys are built to
+> *authenticate to a relying party*, not to produce an Ed25519 signature over your
+> own envelope format. So:
+> - **Login → OIDC/SSO + WebAuthn passkey/MFA.** Operator identity into the
+>   Command Center.
+> - **Command signing → a key you control the signing format of**, two options:
 
-Either way, signing is **not** a Frappe web-request job; it's a client capability
-or a dedicated service. This is the main decision to lock before building (§7).
+- **Recommended — local signing agent.** A small desktop/CLI agent holds the
+  operator's Ed25519 key in a **hardware token (YubiKey PIV / PKCS#11) or the OS
+  keystore**; the browser calls it to sign the envelope. The private key **never
+  reaches the server** (what the security spec demands). The control plane assigns
+  the nonce + checks the allowlist; the bridge relays the already-signed envelope.
+- **Alternative — server-side HSM signing service.** A microservice signs in an
+  HSM on authenticated request. Simpler UX, but the server *can* sign — bigger
+  blast radius; acceptable only with a real HSM + tight audit.
+
+Either way, signing is **not** a Frappe web-request job. This is the main decision
+to lock before building (§7).
 
 ---
 
@@ -174,6 +181,59 @@ This is a **design blueprint**, not built code. The rover-side boundary it targe
 *is* built and verified ([Phase 3 chapter](../software/Phase 3 - Command Center Boundary.md)).
 The numbers and choices here are engineering recommendations to be confirmed at
 §7 before implementation begins.
+
+---
+
+## 10. Second pass — corrections & newer tech (re-examined)
+
+A critical re-read surfaced four things the first draft got wrong or missed, plus
+several newer technologies worth their weight. Verdicts: **Adopt (v1)** /
+**Evaluate (spike)** / **Defer (roadmap)**.
+
+### Corrections (gaps in the first draft)
+- **Telemetry is time-series — don't put it in MariaDB. [Adopt]** Stream telemetry
+  into a **time-series DB** (TimescaleDB — Postgres you likely know — or ClickHouse
+  at scale). MariaDB stays for records + the audit log. This was the biggest miss:
+  high-rate odometry/health/sensor data bloats a relational DB and won't
+  window-query for dashboards.
+- **Login ≠ signing. [Adopt]** §3 correction: OIDC/SSO + WebAuthn for operator
+  *login*; a local HSM/PKCS#11 agent (or server HSM) for command *signing*.
+- **Observability of the Command Center itself. [Adopt]** OpenTelemetry traces +
+  Prometheus/Grafana metrics + Loki logs across broker, bridge, and Frappe. A
+  fleet console you can't observe is one you can't trust.
+- **Clock discipline for expiry. [Adopt]** The 30 s envelope expiry is wall-clock;
+  an offline rover drifts. Discipline rover time to **GPS** (NTP when online) with
+  a small skew tolerance, or valid commands get falsely rejected in the field.
+
+### Newer tech that adds real value
+- **Foxglove for live telemetry + 3D + replay. [Adopt]** Don't rebuild robot
+  visualization from scratch — Foxglove is ROS-native, speaks **MCAP**, and streams
+  over WebSocket. Use it for the deep telemetry/3D/diagnostics + mission-replay
+  panels; keep a thin custom web layer only for the fleet overview + the signed
+  command console (what Foxglove doesn't do).
+- **AI operator copilot (Claude). [Defer → high-value roadmap]** An LLM over
+  telemetry + audit + fleet state: natural-language fleet queries ("which rovers
+  had a security reject or low battery today?"), anomaly summaries, and **command
+  drafting** — but the human always reviews and **signs**; the copilot never signs
+  or dispatches. A real force-multiplier for one operator over many rovers, and
+  on-brand for Friday Labs.
+- **Zenoh / rmw_zenoh as the rover↔cloud transport. [Evaluate]** Where ROS 2 itself
+  is heading: Zenoh is an official RMW, built for robot-to-cloud over lossy
+  constrained links, with a DDS bridge — it *could* replace the MQTT-translation
+  layer. But the locked, built, verified choice is **MQTT 5 + signed envelopes**
+  (proven, shipping). Spike Zenoh for a future major version; don't churn the
+  security model now.
+- **NATS JetStream as the internal bus. [Evaluate]** Keep MQTT as the rover-facing
+  edge protocol; consider NATS for service↔service + fan-out to many SPA clients at
+  fleet scale. Redis pub/sub is fine until you outgrow it.
+- **Offline / satellite maps. [Adopt]** Rovers work where there are no map tiles
+  (forest, farm, mountain). **MapLibre + self-hosted/satellite tiles**, not
+  Leaflet+OSM-online.
+
+### Considered and set aside
+- **VDA 5050** (AGV/AMR fleet standard, MQTT-based) — warehouse-shaped, not a fit
+  for a field rover, but its order/state model is worth a glance for the
+  mission/command vocabulary.
 
 ---
 
