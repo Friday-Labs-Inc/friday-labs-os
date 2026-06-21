@@ -5,9 +5,10 @@
 > tested in a *node sim* — the logic ran, but nothing had a body. Stage 1 gives
 > Mark 1 a **physical body in a physics world**.
 >
-> **Status:** ✅ rover spawns, stands, and drives in physics — rigid first-light →
-> articulated rocker-bogie, both verified on Legion. **Branch:** `stage1/gazebo`.
-> Uneven-terrain stress + wiring the real safety path into sim are the next slices.
+> **Status:** ✅ rover spawns, stands, drives in physics, **and the real OS drives
+> it** — an authorized `MotionCommand` moves the Gazebo rover and a Core death
+> safe-stops it at ~107 ms (Phase 4 against physics). Verified on Legion.
+> **Branch:** `stage1/gazebo`. Uneven-terrain stress is the next slice.
 
 ---
 
@@ -90,6 +91,24 @@ turn) and it drives; it publishes `odom` back. A `ros2 bag` records the whole ru
 MCAP. Real trace: commanded 0.3 m/s → odom **0 → 1.90 m** straight, body stayed
 upright (z unchanged), **11,294 messages** captured.
 
+### 5d. The real OS driving the physics rover (`sim_os.launch.py`)
+The whole point of interface-first: the **same OS** runs the node-sim *and* the
+physics rover. `sim_os.launch.py` brings up the physics layer **plus** the real
+**Core Hub** (authority lease + safety pulse + lifecycle supervisor) and the real
+**Locomotion agent**. The Locomotion agent keeps all its Phase 4 logic — it obeys a
+`MotionCommand` only from the authority holder, and runs the safe-stop watchdog —
+and a `wheel_cmd_topic` param makes its accepted, safe-stop-gated `(v, w)` flow to
+the wheels. So:
+
+```
+ACCEPT motion src=MARK1-CORE-001 nonce=1 v=0.30   →  physics rover drives -0.08 → 1.56 m
+# kill the Core →
+SAFE-STOP entered: safety pulse lost (107 ms)     →  rover halts at 1.65 m, frozen 3 s later
+```
+
+An *authorized* command moves the physical body; the instant the brain (Core) dies,
+the watchdog stops it. Phase 4 safety, proven against physics — not just logic.
+
 ---
 
 ## 6. Decisions & why
@@ -131,6 +150,8 @@ ros2 bag record -s mcap -o run /clock /joint_states /diff_drive_controller/odom 
 | Settles & stands | z = 0.097 m, **identical 3 s later** (stable) |
 | Drives on command | odom 0 → **1.90 m** straight; stays upright |
 | Data collection | MCAP bag, **11,294 messages** (/clock, /odom, /joint_states, /tf) |
+| **Real OS drives physics** (`sim_os.launch.py`) | authorized `MotionCommand` (MARK1-CORE-001) → rover moved 1.6 m |
+| **Safe-stop vs physics** | killed Core → **SAFE-STOP at 107 ms**, rover halted (pose frozen 3 s later) |
 
 ---
 
@@ -141,9 +162,10 @@ ros2 bag record -s mcap -o run /clock /joint_states /diff_drive_controller/odom 
   it's the immediate next slice.
 - **Command-topic name** — the wheels currently listen on
   `/diff_drive_controller/cmd_vel`; rename/route to `/mark1/locomotion/cmd_vel`.
-- **The real OS path in sim** — feed the rover's own `MotionCommand` → odometry and
-  run **Phase 4 safety** (authority + safe-stop) against *physics*, not just the
-  node-sim.
+- ~~**The real OS path in sim**~~ — ✅ **Done** (`sim_os.launch.py`): the real Core
+  Hub + Locomotion agent drive the physics rover; an authorized `MotionCommand`
+  moves it and a Core death safe-stops it at 107 ms. (Next: route the full chain
+  through the Telemetry Command Center boundary into sim.)
 - **Sensors** (Stage 4: LiDAR/camera/IMU) and **Spark** (Stage 6) — later stages.
 
 ---
