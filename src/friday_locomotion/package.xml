@@ -13,6 +13,8 @@
 
   <depend>rclpy</depend>
   <depend>friday_module_agent</depend>
+  <depend>friday_msgs</depend>
+  <depend>nav_msgs</depend>
 
   <test_depend>python3-pytest</test_depend>
 
