@@ -5,10 +5,11 @@
 > tested in a *node sim* — the logic ran, but nothing had a body. Stage 1 gives
 > Mark 1 a **physical body in a physics world**.
 >
-> **Status:** ✅ rover spawns, stands, drives in physics, **and the real OS drives
-> it** — an authorized `MotionCommand` moves the Gazebo rover and a Core death
-> safe-stops it at ~107 ms (Phase 4 against physics). Verified on Legion.
-> **Branch:** `stage1/gazebo`. Uneven-terrain stress is the next slice.
+> **Status:** ✅ rover spawns, **self-levels** on its rocker-bogie, drives in
+> physics, **traverses bumpy terrain** (over ridges + a rock, staying upright),
+> **and the real OS drives it** — an authorized `MotionCommand` moves the Gazebo
+> rover and a Core death safe-stops it at ~107 ms (Phase 4 against physics).
+> Verified on Legion. **Branch:** `stage1/gazebo`. A live GUI view is the open item.
 
 ---
 
@@ -147,9 +148,10 @@ ros2 bag record -s mcap -o run /clock /joint_states /diff_drive_controller/odom 
 | `check_urdf` parses the articulated tree | base → rocker → {front, bogie → {mid, rear}} ×2 ✅ |
 | `colcon build` on `friday-os:sim` (Gazebo Harmonic 8.x) | clean |
 | Spawns in Gazebo | `Model: mark1` present |
-| Settles & stands | z = 0.097 m, **identical 3 s later** (stable) |
+| Settles & **self-levels** | z = 0.070 m, **roll/pitch ≈ 0** (rocker pivot raised above the body CoM) |
 | Drives on command | odom 0 → **1.90 m** straight; stays upright |
-| Data collection | MCAP bag, **11,294 messages** (/clock, /odom, /joint_states, /tf) |
+| **Bumpy terrain** | drove **6.1 m** over 2 ridges + an offset rock; upright throughout (max tilt ~3°); no flip / stall / joint runaway |
+| Data collection | MCAP bag, **11,294** (flat) / **25,720** (bumpy) messages |
 | **Real OS drives physics** (`sim_os.launch.py`) | authorized `MotionCommand` (MARK1-CORE-001) → rover moved 1.6 m |
 | **Safe-stop vs physics** | killed Core → **SAFE-STOP at 107 ms**, rover halted (pose frozen 3 s later) |
 
@@ -157,9 +159,12 @@ ros2 bag record -s mcap -o run /clock /joint_states /diff_drive_controller/odom 
 
 ## 9. What is intentionally NOT done yet
 
-- **Uneven-terrain stress** — driving the rocker-bogie over rocks/steps to show the
-  arms articulate and the body stays level. This is the suspension's whole purpose;
-  it's the immediate next slice.
+- ~~**Uneven-terrain stress**~~ — ✅ **Done**: the rover self-levels (the rocker
+  pivot was raised above the body CoM) and drove **6.1 m over two ridges + an offset
+  rock**, staying upright (max tilt ~3°), no flip/stall. (Found + fixed a bug where
+  the passive arms collapsed to their limit, pitching the body ~21–39°.)
+- **Live GUI view** — the headless sim is fully verified; opening the Gazebo *window*
+  on a real screen (through Docker Desktop + Wayland) is being handled on the Legion PC.
 - **Command-topic name** — the wheels currently listen on
   `/diff_drive_controller/cmd_vel`; rename/route to `/mark1/locomotion/cmd_vel`.
 - ~~**The real OS path in sim**~~ — ✅ **Done** (`sim_os.launch.py`): the real Core
@@ -172,8 +177,8 @@ ros2 bag record -s mcap -o run /clock /joint_states /diff_drive_controller/odom 
 
 ## 10. Where this goes next
 
-- **Articulated over terrain**, then **plug the real command + safety path in**, so
-  the exact same OS that runs the node-sim drives the physics rover.
+- **Live GUI** on a screen (in progress on the Legion PC), and route the full command
+  chain through the Telemetry Command Center boundary into sim.
 - Then **Stage 2+** of the sim-bringup procedure (lifecycle agents → closed loop →
   sensing → fault injection → Spark → headless CI).
 
