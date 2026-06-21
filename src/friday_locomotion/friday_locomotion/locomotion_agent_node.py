@@ -21,6 +21,7 @@ dedicated serial link, validated on hardware-in-the-loop (see the budget doc).
 import math
 
 import rclpy
+from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.executors import MultiThreadedExecutor
 
@@ -76,6 +77,10 @@ class LocomotionAgent(ModuleAgent):
         self._epoch = 0
         self.declare_parameter('nonce_store', '')
         self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
+        # sim bridge: if set, the same authority-gated, safe-stoppable motion is
+        # emitted as a TwistStamped wheel command so it drives Gazebo physics
+        # (empty by default -> pure node-sim behaviour, unchanged).
+        self.declare_parameter('wheel_cmd_topic', '')
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
@@ -86,6 +91,7 @@ class LocomotionAgent(ModuleAgent):
         self._authority_sub = None
         self._pulse_sub = None
         self._estop_sub = None
+        self._wheel_cmd_pub = None
         self._motion_timer = None
         self._watchdog_timer = None
 
@@ -103,6 +109,11 @@ class LocomotionAgent(ModuleAgent):
             Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream())
         self._estop_sub = self.create_subscription(
             EmergencyStop, ESTOP_TOPIC, self._on_emergency_stop, qos.critical_reliable())
+        wheel_topic = self.get_parameter('wheel_cmd_topic').value
+        if wheel_topic:
+            self._wheel_cmd_pub = self.create_lifecycle_publisher(
+                TwistStamped, wheel_topic, qos.state_default())
+            self.get_logger().info(f'sim wheel bridge -> {wheel_topic}')
 
     def activate_hardware(self) -> None:
         self._x = self._y = self._theta = 0.0
@@ -219,6 +230,14 @@ class LocomotionAgent(ModuleAgent):
         odom.twist.twist.linear.x = self._v
         odom.twist.twist.angular.z = self._w
         self._odom_pub.publish(odom)
+        # sim: drive the physics wheels with the same (safe-stop-gated) v/w.
+        if self._wheel_cmd_pub is not None:
+            tw = TwistStamped()
+            tw.header.stamp = odom.header.stamp
+            tw.header.frame_id = 'base_link'
+            tw.twist.linear.x = self._v
+            tw.twist.angular.z = self._w
+            self._wheel_cmd_pub.publish(tw)
 
     def _publish_fault(self, category, severity, description) -> None:
         fr = FaultReport()
