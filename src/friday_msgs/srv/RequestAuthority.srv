@@ -1,0 +1,13 @@
+# A recovering node asks the current holder to hand command authority back.
+# Service: /mark1/system/request_authority   Owner: authority-lease-service.
+# Core broadcasts this on reboot when it sees Telemetry already holding the lease;
+# Telemetry grants only if the rover is stable (no motion, no active fault) and the
+# requester's epoch is not behind (last_known_epoch >= holder epoch). See the
+# Authority Lease Protocol addendum ("Authority Return", "Conflict Resolution").
+Mark1Header header                 # carries module_id + protocol semver + stamp
+string requester_module_id
+uint64 last_known_epoch
+---
+bool   granted
+uint64 new_epoch                   # holder epoch + 1 on grant (the epoch Core publishes after the quiet window)
+string reason

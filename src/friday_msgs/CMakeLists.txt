@@ -18,7 +18,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FaultReport.msg"
   "msg/AuthorityLease.msg"
   "msg/EmergencyStop.msg"
+  "msg/ReleaseAuthority.msg"
   "srv/RegisterModule.srv"
+  "srv/RequestAuthority.srv"
   DEPENDENCIES builtin_interfaces
 )
 

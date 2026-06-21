@@ -31,7 +31,7 @@ from friday_msgs.msg import (
     Heartbeat,
     MotionCommand,
 )
-from friday_module_agent import qos
+from friday_module_agent import authority, qos
 from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
@@ -127,6 +127,16 @@ class LocomotionAgent(ModuleAgent):
 
     # ---- authority + safety inputs ----------------------------------------
     def _on_authority(self, msg: AuthorityLease) -> None:
+        # Epoch-monotonic gate (split-brain S3): honour a lease only if its epoch
+        # is not behind the highest we've accepted. After a failover bumps the
+        # epoch, a stale lower-epoch lease from a rejoining Core is ignored here —
+        # so the consumer can never act on two holders, whoever is publishing.
+        if not authority.accept_lease(incoming_epoch=msg.epoch,
+                                      current_epoch=self._epoch):
+            self.get_logger().warning(
+                f'ignoring stale authority lease: epoch {msg.epoch} < {self._epoch} '
+                f'(from {msg.holder_module_id})')
+            return
         self._holder = msg.holder_module_id
         self._lease_expiry_s = _t2s(msg.expires_at)
         self._epoch = msg.epoch
