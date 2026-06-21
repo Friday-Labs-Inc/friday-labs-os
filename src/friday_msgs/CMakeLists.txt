@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/HealthStatus.msg"
   "msg/ModulePresence.msg"
   "msg/MotionCommand.msg"
+  "msg/FaultReport.msg"
   "srv/RegisterModule.srv"
   DEPENDENCIES builtin_interfaces
 )

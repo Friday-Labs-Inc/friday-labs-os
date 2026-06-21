@@ -14,6 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-jazzy-launch \
       ros-jazzy-launch-ros \
       git \
+      mosquitto \
+      mosquitto-clients \
+      python3-paho-mqtt \
+      python3-cbor2 \
+      python3-cryptography \
     && rm -rf /var/lib/apt/lists/*
 
 # Source ROS (and the workspace overlay, once built) for any interactive shell.

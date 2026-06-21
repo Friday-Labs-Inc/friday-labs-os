@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>friday_telemetry</name>
+  <version>0.3.0</version>
+  <description>
+    Telemetry Command Node agent — the Command Center boundary. Translates
+    internal friday_msgs (ROS 2 / DDS) to/from the external Command Center over a
+    signed, MQTT-class link (Ed25519 + CBOR envelopes, nonce + expiry, operator
+    allowlist). The only external attack surface; validates every command.
+  </description>
+  <maintainer email="iamfriday86@gmail.com">Friday Labs Inc.</maintainer>
+  <license>Proprietary</license>
+
+  <depend>rclpy</depend>
+  <depend>friday_msgs</depend>
+  <depend>friday_module_agent</depend>
+
+  <exec_depend>python3-paho-mqtt</exec_depend>
+  <exec_depend>python3-cbor2</exec_depend>
+  <exec_depend>python3-cryptography</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
