@@ -59,6 +59,9 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Architecture Review — 7-Expert Comparative Analysis](command-center/Architecture Review - 7-Expert Comparative Analysis.md) — seven senior architects (application · system · connectivity · radio/RF · cloud · data lake · data pipeline) reviewed the design; scorecard, ranked consensus gaps (nonce durability, offline-revocation handshake, edge↔cloud sync contract, the LoRa-e-stop correction, concrete TSDB), cross-dimension conflicts, and a P0/P1/P2 fix plan.
 - [Deployment, Connectivity & Fleet Monitoring](command-center/Deployment, Connectivity & Fleet Monitoring.md) — **edge-first topology**: the Local Command Center (broker + console + signing) runs at the *site* so field control survives an internet cut; cloud is a roll-up. The 20–30 km field-link comms tiers (LoRa emergency · MANET mesh · 5 GHz directional · satellite backhaul), and **Friday Labs' own device-health / fault-detection plane** (catch a failure before the customer does; opt-in / air-gappable for defense). Topology diagram included.
 
+**Strategy (forward-looking):**
+- [Mark 1 — 2030 Technology Horizon](strategy/Mark 1 - 2030 Technology Horizon.md) — a 7-expert forward-looking panel (2026 → 2030 launch): the governing principle **"lock contracts, build slots"**, the 2030 tech bet per dimension (Zenoh fabric · NTN direct-to-device · hardware-agnostic inference slot · time-series foundation models for predictive maintenance · CRDT sync engine · Iceberg/Arrow lakehouse · agentic ops console), a 2026→2030 gate timeline, the **no-regret moves to start now**, and the one thing you can't backfill: **start the fleet failure-data corpus in 2026.**
+
 ## The Five Modules
 
 | Module | Role | Compute | Spec status |
