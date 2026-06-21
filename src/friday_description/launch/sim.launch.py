@@ -33,7 +33,8 @@ def generate_launch_description() -> LaunchDescription:
     world_file = os.path.join(pkg, 'worlds', 'empty_ground.sdf')
 
     robot_description = ParameterValue(
-        Command(['xacro ', xacro_file, ' controllers_yaml:=', controllers_yaml]),
+        Command(['xacro ', xacro_file, ' controllers_yaml:=', controllers_yaml],
+                on_stderr='ignore'),
         value_type=str)
 
     # Gazebo Harmonic, headless server (-s), run immediately (-r), low verbosity.

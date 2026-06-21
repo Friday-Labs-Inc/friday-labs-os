@@ -81,11 +81,11 @@
   </xacro:macro>
 
   <!-- ===== a passive suspension arm (rocker or bogie) ===== -->
-  <xacro:macro name="arm" params="name parent x y z mass len ixx iyy izz">
+  <xacro:macro name="arm" params="name parent x y z mass arm_len ixx iyy izz">
     <link name="${name}">
       <visual>
-        <origin xyz="${len/2 - 0.16} 0 -0.04"/>
-        <geometry><box size="${len} 0.03 0.03"/></geometry>
+        <origin xyz="${arm_len/2 - 0.16} 0 -0.04"/>
+        <geometry><box size="${arm_len} 0.03 0.03"/></geometry>
         <material name="arm_mat"/>
       </visual>
       <inertial>
@@ -107,12 +107,12 @@
   <xacro:macro name="leg" params="side s">
     <xacro:arm name="rocker_${side}" parent="base_link"
                x="0.0" y="${0.27*s}" z="0.12"
-               mass="${rocker_mass}" len="0.45" ixx="0.001" iyy="0.012" izz="0.012"/>
+               mass="${rocker_mass}" arm_len="0.45" ixx="0.001" iyy="0.012" izz="0.012"/>
     <xacro:wheel name="${side}_front" parent="rocker_${side}"
                  x="0.302" y="${0.021*s}" z="-0.12"/>
     <xacro:arm name="bogie_${side}" parent="rocker_${side}"
                x="-0.14" y="${0.03*s}" z="-0.12"
-               mass="${bogie_mass}" len="0.32" ixx="0.0005" iyy="0.0035" izz="0.0035"/>
+               mass="${bogie_mass}" arm_len="0.32" ixx="0.0005" iyy="0.0035" izz="0.0035"/>
     <xacro:wheel name="${side}_mid" parent="bogie_${side}"
                  x="0.155" y="${0.023*s}" z="0.0"/>
     <xacro:wheel name="${side}_rear" parent="bogie_${side}"
