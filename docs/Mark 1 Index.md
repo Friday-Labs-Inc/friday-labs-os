@@ -54,6 +54,9 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
   - [Phase 3 — Closed-Loop Motion](software/Phase 3 - Closed-Loop Motion.md) — first *moving* behavior: `MotionCommand` → unicycle motion model → `nav_msgs/Odometry` (verified command-to-odometry loop on the `odom` frame).
   - [Phase 3 — Command Center Boundary](software/Phase 3 - Command Center Boundary.md) — the guarded external door: the Telemetry Node Agent validates Ed25519-signed, CBOR MQTT commands (allowlist + nonce + expiry), republishing valid ones to ROS and rejecting forged/replayed/expired (live-verified). Completes foundation Phase 3.
 
+**Command Center (operator application — design blueprint):**
+- [Command Center Application Blueprint](command-center/Command Center Application Blueprint.md) — system architecture for the operator-facing app that commands/monitors the fleet over the secure boundary. **Hybrid: Frappe control plane** (rovers/operators/missions/audit/RBAC/REST) **+ a dedicated MQTT broker + async bridge** for the real-time data plane; client-side signing recommended. Architecture diagram + phased build plan.
+
 ## The Five Modules
 
 | Module | Role | Compute | Spec status |

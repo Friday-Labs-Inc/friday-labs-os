@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420mm" height="260mm" viewBox="0 0 1640 1015">
+<defs>
+<marker id="ar" markerWidth="11" markerHeight="11" refX="9" refY="4" orient="auto"><path d="M0 0 L9 4 L0 8 z" fill="#2a4066"/></marker>
+<marker id="arT" markerWidth="11" markerHeight="11" refX="9" refY="4" orient="auto"><path d="M0 0 L9 4 L0 8 z" fill="#179b86"/></marker>
+<style>text{font-family:Arial,Helvetica,sans-serif}</style>
+</defs>
+<rect width="1640" height="1015" fill="#ffffff"/>
+<rect x="20" y="20" width="1600" height="975" rx="6" fill="none" stroke="#1f3050" stroke-width="2.5"/>
+<rect x="20" y="20" width="1600" height="60" rx="6" fill="#1f3050"/>
+<rect x="20" y="74" width="1600" height="6" fill="#20b2a6"/>
+<text x="44" y="58" font-size="22" font-weight="bold" fill="#ffffff">Mark 1 Command Center — System Architecture Blueprint</text>
+<text x="1596" y="52" font-size="12.5" fill="#aebbcf" text-anchor="end">Hybrid: Frappe control plane + dedicated real-time data plane</text>
+<text x="1596" y="69" font-size="12.5" fill="#9fb0c8" text-anchor="end">Operator side of the friday_msgs ↔ Command Center boundary</text>
+
+<!-- column headers -->
+<text x="60" y="112" font-size="15" font-weight="bold" fill="#1f3050">COMMAND CENTER APPLICATION</text>
+<text x="1000" y="112" font-size="15" font-weight="bold" fill="#6b7484" text-anchor="middle">SECURE BOUNDARY</text>
+<text x="1410" y="112" font-size="15" font-weight="bold" fill="#c0493a" text-anchor="middle">ROVER FLEET</text>
+
+<!-- ===================== PRESENTATION PLANE ===================== -->
+<rect x="44" y="128" width="848" height="150" rx="12" fill="#eef3f9"/>
+<text x="60" y="150" font-size="12.5" font-weight="bold" fill="#2a4066">PRESENTATION — operator-facing UI</text>
+<rect x="64" y="162" width="392" height="100" rx="9" fill="#ffffff" stroke="#179b86" stroke-width="2"/>
+<text x="260" y="190" font-size="14.5" font-weight="bold" fill="#179b86" text-anchor="middle">Admin &amp; Fleet UI</text>
+<text x="260" y="212" font-size="12" fill="#5b6472" text-anchor="middle">Frappe Desk — fleet, operators, missions,</text>
+<text x="260" y="230" font-size="12" fill="#5b6472" text-anchor="middle">audit review, reports, RBAC. Out of the box.</text>
+<text x="260" y="251" font-size="11" font-weight="bold" fill="#179b86" text-anchor="middle">Frappe ✓</text>
+<rect x="476" y="162" width="396" height="100" rx="9" fill="#ffffff" stroke="#2a4066" stroke-width="2"/>
+<text x="674" y="190" font-size="14.5" font-weight="bold" fill="#2a4066" text-anchor="middle">Live Ops Console (SPA)</text>
+<text x="674" y="212" font-size="12" fill="#5b6472" text-anchor="middle">React/Vue: live map, telemetry, health,</text>
+<text x="674" y="230" font-size="12" fill="#5b6472" text-anchor="middle">command console, fault/security alerts, video.</text>
+<text x="674" y="251" font-size="11" fill="#5b6472" text-anchor="middle">WebSocket (live) + REST (records)</text>
+
+<!-- ===================== CONTROL PLANE (FRAPPE) ===================== -->
+<rect x="44" y="300" width="848" height="262" rx="12" fill="#e8f6f2"/>
+<text x="60" y="322" font-size="12.5" font-weight="bold" fill="#178a80">CONTROL PLANE — system of record  ·  FRAPPE FRAMEWORK ✓ (great fit)</text>
+<rect x="64" y="336" width="620" height="208" rx="9" fill="#ffffff" stroke="#179b86" stroke-width="2.2"/>
+<text x="374" y="360" font-size="14.5" font-weight="bold" fill="#179b86" text-anchor="middle">Frappe — DocTypes, RBAC, Workflow, REST, Audit</text>
+<!-- doctype chips -->
+<g font-size="11.5" fill="#27313f">
+<rect x="82" y="376" width="120" height="34" rx="6" fill="#e8f6f2" stroke="#7fc7bb"/><text x="142" y="398" text-anchor="middle">Rover</text>
+<rect x="214" y="376" width="120" height="34" rx="6" fill="#e8f6f2" stroke="#7fc7bb"/><text x="274" y="398" text-anchor="middle">Operator + Key</text>
+<rect x="346" y="376" width="150" height="34" rx="6" fill="#e8f6f2" stroke="#7fc7bb"/><text x="421" y="398" text-anchor="middle">Mission (UploadMission)</text>
+<rect x="508" y="376" width="158" height="34" rx="6" fill="#e8f6f2" stroke="#7fc7bb"/><text x="587" y="398" text-anchor="middle">Allowlist / CA / Cert</text>
+<rect x="82" y="420" width="180" height="34" rx="6" fill="#fbeeec" stroke="#d79b91"/><text x="172" y="442" text-anchor="middle">Command Audit Log</text>
+<rect x="274" y="420" width="180" height="34" rx="6" fill="#fbeeec" stroke="#d79b91"/><text x="364" y="442" text-anchor="middle">Security Event (FaultReport)</text>
+<rect x="466" y="420" width="120" height="34" rx="6" fill="#e8f6f2" stroke="#7fc7bb"/><text x="526" y="442" text-anchor="middle">Revocation</text>
+</g>
+<text x="82" y="486" font-size="12" fill="#5b6472">RBAC: who may command which rover · approve missions · read-only viewers.</text>
+<text x="82" y="506" font-size="12" fill="#5b6472">Owns nonce counters + allowlist + immutable audit trail (every command, signed).</text>
+<text x="82" y="526" font-size="12" fill="#5b6472">Exposes REST API to the SPA and the bridge service.</text>
+<!-- DB -->
+<rect x="700" y="336" width="172" height="208" rx="9" fill="#ffffff" stroke="#179b86" stroke-width="2"/>
+<text x="786" y="360" font-size="13.5" font-weight="bold" fill="#179b86" text-anchor="middle">Data store</text>
+<text x="786" y="392" font-size="12" fill="#5b6472" text-anchor="middle">MariaDB</text>
+<text x="786" y="414" font-size="12" fill="#5b6472" text-anchor="middle">(records + audit)</text>
+<text x="786" y="452" font-size="12" fill="#5b6472" text-anchor="middle">Redis</text>
+<text x="786" y="474" font-size="12" fill="#5b6472" text-anchor="middle">(cache + queue +</text>
+<text x="786" y="492" font-size="12" fill="#5b6472" text-anchor="middle">socket.io)</text>
+
+<!-- ===================== DATA PLANE ===================== -->
+<rect x="44" y="584" width="848" height="252" rx="12" fill="#fdf4e3"/>
+<text x="60" y="606" font-size="12.5" font-weight="bold" fill="#b9831e">DATA PLANE — real-time  ·  DEDICATED SERVICES (NOT Frappe)</text>
+<rect x="64" y="620" width="430" height="198" rx="9" fill="#ffffff" stroke="#b9831e" stroke-width="2.2"/>
+<text x="279" y="646" font-size="14.5" font-weight="bold" fill="#b9831e" text-anchor="middle">Bridge / Gateway service (async)</text>
+<text x="80" y="674" font-size="12" fill="#27313f">• Subscribes telemetry/ack/debug from all rovers →</text>
+<text x="92" y="692" font-size="12" fill="#5b6472">writes to DB + pushes to SPA over WebSocket.</text>
+<text x="80" y="714" font-size="12" fill="#27313f">• Publishes signed commands to cmd/ topics.</text>
+<text x="80" y="736" font-size="12" fill="#27313f">• Enforces topic ACLs, verifies rover telemetry sigs.</text>
+<text x="80" y="760" font-size="12" fill="#5b6472">Python asyncio (aiomqtt / paho + FastAPI ws).</text>
+<text x="80" y="784" font-size="11.5" font-weight="bold" fill="#b9831e">Stateless, horizontally scalable. Shares Frappe DB / REST.</text>
+<rect x="508" y="620" width="364" height="198" rx="9" fill="#ffffff" stroke="#b9831e" stroke-width="2.2"/>
+<text x="690" y="646" font-size="14.5" font-weight="bold" fill="#b9831e" text-anchor="middle">Command Signing</text>
+<text x="690" y="674" font-size="12" fill="#27313f" text-anchor="middle">Ed25519 over (payload‖nonce‖rover‖expiry)</text>
+<text x="524" y="702" font-size="12" font-weight="bold" fill="#178a80">Recommended: client-side</text>
+<text x="524" y="720" font-size="11.5" fill="#5b6472">operator signs in browser via WebAuthn /</text>
+<text x="524" y="737" font-size="11.5" fill="#5b6472">YubiKey; private key never hits the server.</text>
+<text x="524" y="762" font-size="12" font-weight="bold" fill="#5b6472">Alt: server-side HSM signing service</text>
+<text x="524" y="779" font-size="11.5" fill="#5b6472">(simpler UX, higher trust in the server).</text>
+<text x="690" y="803" font-size="11" fill="#b9831e" text-anchor="middle">Control plane assigns nonce + checks allowlist</text>
+
+<!-- inter-plane links -->
+<line x1="468" y1="278" x2="468" y2="300" stroke="#2a4066" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+<line x1="468" y1="562" x2="468" y2="584" stroke="#2a4066" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+<text x="478" y="576" font-size="10.5" fill="#5b6472">REST / events</text>
+
+<!-- ===================== SECURE BOUNDARY ===================== -->
+<rect x="916" y="128" width="232" height="708" rx="12" fill="#eef1f5" stroke="#6b7484" stroke-width="1.6" stroke-dasharray="9 7"/>
+<rect x="936" y="300" width="192" height="262" rx="10" fill="#ffffff" stroke="#6b7484" stroke-width="2.4"/>
+<text x="1032" y="330" font-size="15" font-weight="bold" fill="#2a4066" text-anchor="middle">MQTT 5 Broker</text>
+<text x="1032" y="352" font-size="12.5" fill="#5b6472" text-anchor="middle">EMQX (or HiveMQ)</text>
+<text x="1032" y="384" font-size="12" font-weight="bold" fill="#c0493a" text-anchor="middle">TLS 1.3 + mutual-TLS</text>
+<text x="1032" y="404" font-size="11.5" fill="#5b6472" text-anchor="middle">per-rover client certs</text>
+<line x1="952" y1="420" x2="1112" y2="420" stroke="#d9e0ea" stroke-width="1.4"/>
+<text x="1032" y="442" font-size="11.5" fill="#27313f" text-anchor="middle">topic classes:</text>
+<text x="1032" y="462" font-size="11.5" fill="#2a4066" text-anchor="middle">cmd/ · tlm/ · ack/ · dbg/</text>
+<text x="1032" y="492" font-size="11" fill="#5b6472" text-anchor="middle">mark1/&lt;rover_id&gt;/&lt;class&gt;</text>
+<text x="1032" y="522" font-size="11" fill="#5b6472" text-anchor="middle">broker ACL per rover/operator</text>
+<rect x="936" y="600" width="192" height="150" rx="10" fill="#ffffff" stroke="#b9831e" stroke-width="1.8"/>
+<text x="1032" y="624" font-size="12.5" font-weight="bold" fill="#b9831e" text-anchor="middle">Signed envelope</text>
+<text x="1032" y="648" font-size="11" fill="#5b6472" text-anchor="middle">CBOR payload +</text>
+<text x="1032" y="666" font-size="11" fill="#5b6472" text-anchor="middle">Ed25519 signature</text>
+<text x="1032" y="690" font-size="11" fill="#5b6472" text-anchor="middle">nonce + 30 s expiry</text>
+<text x="1032" y="714" font-size="11" fill="#5b6472" text-anchor="middle">rover validates all 7</text>
+<text x="1032" y="732" font-size="11" fill="#5b6472" text-anchor="middle">checks before acting</text>
+
+<!-- ===================== ROVER FLEET ===================== -->
+<g>
+<rect x="1176" y="150" width="430" height="196" rx="11" fill="#fbeeec" stroke="#c0493a" stroke-width="2"/>
+<text x="1391" y="176" font-size="14.5" font-weight="bold" fill="#c0493a" text-anchor="middle">Mark 1 rover  (MARK1-001)</text>
+<rect x="1196" y="190" width="390" height="62" rx="8" fill="#ffffff" stroke="#c0493a" stroke-width="1.6"/>
+<text x="1391" y="214" font-size="12.5" font-weight="bold" fill="#2a4066" text-anchor="middle">Telemetry Node Agent</text>
+<text x="1391" y="234" font-size="11" fill="#5b6472" text-anchor="middle">validates commands · the guarded door (built)</text>
+<rect x="1196" y="262" width="390" height="64" rx="8" fill="#ffffff" stroke="#179b86" stroke-width="1.6"/>
+<text x="1391" y="286" font-size="12.5" font-weight="bold" fill="#179b86" text-anchor="middle">Friday Labs OS  (ROS 2 / friday_msgs)</text>
+<text x="1391" y="306" font-size="11" fill="#5b6472" text-anchor="middle">Core Hub · Locomotion · Lab · Aerial · Spark</text>
+</g>
+<rect x="1176" y="372" width="430" height="120" rx="11" fill="#fbeeec" stroke="#c0493a" stroke-width="1.6" opacity="0.85"/>
+<text x="1391" y="398" font-size="13.5" font-weight="bold" fill="#c0493a" text-anchor="middle">Mark 1 rover  (MARK1-002)</text>
+<text x="1391" y="424" font-size="11.5" fill="#5b6472" text-anchor="middle">Telemetry Node Agent + Friday Labs OS</text>
+<text x="1391" y="452" font-size="11.5" fill="#5b6472" text-anchor="middle">offline-first · multi-path 4G/5G · Wi-Fi · LoRa</text>
+<text x="1391" y="476" font-size="11" fill="#9a6a20" text-anchor="middle">LoRa = emergency-stop fallback (HMAC, low-bandwidth)</text>
+<rect x="1176" y="512" width="430" height="60" rx="11" fill="#ffffff" stroke="#c0493a" stroke-width="1.2" stroke-dasharray="6 5"/>
+<text x="1391" y="548" font-size="12.5" fill="#c0493a" text-anchor="middle">… fleet scales to N rovers (same contract)</text>
+
+<!-- flows: command out (left->right), telemetry in (right->left) -->
+<path d="M724 690 L800 690 L800 408 L936 408" fill="none" stroke="#2a4066" stroke-width="2.6" marker-end="url(#ar)"/>
+<text x="812" y="400" font-size="11.5" font-weight="bold" fill="#2a4066">signed command (cmd/)</text>
+<path d="M1128 430 L1162 430 L1162 221 L1196 221" fill="none" stroke="#2a4066" stroke-width="2.6" marker-end="url(#ar)"/>
+<path d="M1196 300 L1150 300 L1150 470 L1128 470" fill="none" stroke="#179b86" stroke-width="2.6" marker-end="url(#arT)"/>
+<text x="1140" y="500" font-size="11.5" font-weight="bold" fill="#178a80" text-anchor="end">telemetry / ack (tlm/ ack/)</text>
+<path d="M936 470 L860 470 L860 705 L724 705" fill="none" stroke="#179b86" stroke-width="2.6" marker-end="url(#arT)"/>
+
+<!-- legend -->
+<rect x="44" y="858" width="1102" height="58" rx="9" fill="#f4f7fb" stroke="#d9e0ea"/>
+<text x="62" y="882" font-size="12" font-weight="bold" fill="#5b6472">LEGEND</text>
+<rect x="140" y="872" width="20" height="14" rx="3" fill="#e8f6f2" stroke="#179b86"/><text x="168" y="884" font-size="12" fill="#5b6472">Frappe — great fit (control plane)</text>
+<rect x="400" y="872" width="20" height="14" rx="3" fill="#fdf4e3" stroke="#b9831e"/><text x="428" y="884" font-size="12" fill="#5b6472">Dedicated real-time service (not Frappe)</text>
+<rect x="730" y="872" width="20" height="14" rx="3" fill="#eef1f5" stroke="#6b7484"/><text x="758" y="884" font-size="12" fill="#5b6472">Secure boundary (broker)</text>
+<rect x="960" y="872" width="20" height="14" rx="3" fill="#fbeeec" stroke="#c0493a"/><text x="988" y="884" font-size="12" fill="#5b6472">Rover (built: Telemetry Agent)</text>
+<line x1="62" y1="905" x2="92" y2="905" stroke="#2a4066" stroke-width="2.6"/><text x="100" y="909" font-size="11.5" fill="#5b6472">command (out)</text>
+<line x1="220" y1="905" x2="250" y2="905" stroke="#179b86" stroke-width="2.6"/><text x="258" y="909" font-size="11.5" fill="#5b6472">telemetry (in)</text>
+
+<text x="1176" y="884" font-size="11" fill="#5b6472">Build order: A control plane (Frappe) →</text>
+<text x="1176" y="902" font-size="11" fill="#5b6472">B broker + bridge → C live SPA →</text>
+<text x="1176" y="920" font-size="11" fill="#5b6472">D CA / certs / revocation / video</text>
+</svg>
