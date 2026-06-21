@@ -18,10 +18,11 @@ from lifecycle_msgs.msg import State as LCState
 from lifecycle_msgs.msg import Transition
 from lifecycle_msgs.srv import ChangeState
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
-from friday_msgs.msg import Heartbeat, Mark1Header, ModulePresence
+from friday_msgs.msg import AuthorityLease, Heartbeat, Mark1Header, ModulePresence
 from friday_msgs.srv import RegisterModule
 from friday_module_agent import protocol, qos
 
@@ -44,6 +45,7 @@ class CoreHub(Node):
         super().__init__('core_hub')
         self.declare_parameter('managed_nodes', [''])
         self.declare_parameter('autostart_delay_s', 3.0)
+        self.declare_parameter('authority_holder', 'MARK1-CORE-001')
 
         self._cb_group = ReentrantCallbackGroup()
         self._registry = ModuleRegistry()
@@ -58,6 +60,17 @@ class CoreHub(Node):
             callback_group=self._cb_group)
 
         self.create_timer(0.5, self._check_liveness)
+
+        # --- safety-supervisor: authority lease + safety pulse (Phase 4) ---
+        self._authority_holder = self.get_parameter('authority_holder').value
+        self._epoch = 1
+        self._safety_seq = 0
+        self._authority_pub = self.create_publisher(
+            AuthorityLease, '/mark1/system/authority', qos.critical_reliable())
+        self._safety_pub = self.create_publisher(
+            Heartbeat, '/mark1/system/safety_pulse', qos.sensor_stream())
+        self.create_timer(0.5, self._publish_authority)       # 2 s lease, renew 500 ms
+        self.create_timer(0.05, self._publish_safety_pulse)   # 20 Hz owning-node pulse
 
         self._change_clients = {}     # node_name -> Client
         self._steps = collections.deque()
@@ -105,6 +118,25 @@ class CoreHub(Node):
         msg.header = self._header(module_id)
         msg.online = online
         self._presence_pub.publish(msg)
+
+    # ---- safety-supervisor (authority lease + safety pulse) ---------------
+    def _publish_authority(self) -> None:
+        msg = AuthorityLease()
+        msg.header = self._header(self._authority_holder)
+        msg.holder_module_id = self._authority_holder
+        msg.epoch = self._epoch
+        msg.expires_at = (self.get_clock().now() + Duration(seconds=2.0)).to_msg()
+        self._authority_pub.publish(msg)
+
+    def _publish_safety_pulse(self) -> None:
+        # Models the owning-Pi heartbeat the Locomotion firmware watchdog watches.
+        # (Real path is a dedicated serial/USB link, not DDS — validated on HIL.)
+        msg = Heartbeat()
+        msg.header = self._header(self._authority_holder)
+        msg.sequence = self._safety_seq
+        msg.lifecycle_state = LCState.PRIMARY_STATE_ACTIVE
+        self._safety_pub.publish(msg)
+        self._safety_seq += 1
 
     # ---- health monitor ---------------------------------------------------
     def _subscribe_heartbeat(self, module_id: str, namespace: str) -> None:
