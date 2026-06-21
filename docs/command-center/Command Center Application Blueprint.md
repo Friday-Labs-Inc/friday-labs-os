@@ -138,6 +138,14 @@ of telemetry/acks — no new contract is needed; it mirrors what's verified.
 ---
 
 ## 6. Deployment & security posture
+
+> **Topology is edge-first, not cloud-first.** The broker + operator console run
+> at the *site* (a Local Command Center), so field control survives an internet
+> cut; cloud is a roll-up + Friday Labs' device-monitoring plane. The 20–30 km
+> field-link comms, the manufacturer fault-detection plane, and the cloud-cut
+> behavior are covered in depth in
+> **[Deployment, Connectivity & Fleet Monitoring](Deployment, Connectivity & Fleet Monitoring.md)**.
+
 - **mTLS everywhere** on the broker; per-rover client certs (CN = rover_id),
   per-operator signing keys allowlisted per rover.
 - **CA** issues rover/operator certs; root stored offline. Rotation + revocation
