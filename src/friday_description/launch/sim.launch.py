@@ -1,11 +1,12 @@
-"""Mark 1 Stage 1 sim bring-up — headless Gazebo Harmonic + the rover + control.
+"""Mark 1 Stage 1 sim bring-up — headless/GUI Gazebo Harmonic + the rover + control.
 
-  ros2 launch friday_description sim.launch.py
+  ros2 launch friday_description sim.launch.py [world:=bumpy.sdf] [headless:=false]
 
-Brings up: gz sim (server, headless) with the ground world; robot_state_publisher
-from the rocker-bogie xacro; spawns the rover; bridges /clock; then loads the
-joint_state_broadcaster + diff_drive_controller. Drive it with a Twist on
-/diff_drive_controller/cmd_vel (remapped to /mark1/locomotion/cmd_vel).
+Brings up gz sim with a world, robot_state_publisher from the rocker-bogie xacro,
+spawns the rover, bridges /clock, then loads joint_state_broadcaster +
+wheel_velocity_controller (6 drive wheels) + steer_position_controller (4 corner
+steer). Drive with Float64MultiArray on /wheel_velocity_controller/commands (rad/s)
+and steer with /steer_position_controller/commands (rad).
 """
 
 import os
@@ -36,7 +37,7 @@ def generate_launch_description() -> LaunchDescription:
     ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     xacro_file = os.path.join(pkg, 'urdf', 'mark1.urdf.xacro')
-    controllers_yaml = os.path.join(pkg, 'config', 'diff_drive_controller.yaml')
+    controllers_yaml = os.path.join(pkg, 'config', 'controllers.yaml')
     world_path = PathJoinSubstitution([pkg, 'worlds', LaunchConfiguration('world')])
 
     robot_description = ParameterValue(
@@ -60,41 +61,34 @@ def generate_launch_description() -> LaunchDescription:
     rsp = Node(
         package='robot_state_publisher', executable='robot_state_publisher',
         output='screen',
-        parameters=[{'robot_description': robot_description, 'use_sim_time': True}],
-    )
+        parameters=[{'robot_description': robot_description, 'use_sim_time': True}])
 
-    # /clock from gz so everything runs on sim time.
     bridge = Node(
         package='ros_gz_bridge', executable='parameter_bridge', output='screen',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
-    )
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'])
 
     spawn = Node(
         package='ros_gz_sim', executable='create', output='screen',
-        arguments=['-topic', 'robot_description', '-name', 'mark1', '-z', '0.15'],
-    )
+        arguments=['-topic', 'robot_description', '-name', 'mark1', '-z', '0.12'])
 
-    jsb = Node(
-        package='controller_manager', executable='spawner', output='screen',
-        arguments=['joint_state_broadcaster'],
-    )
-    ddc = Node(
-        package='controller_manager', executable='spawner', output='screen',
-        arguments=['diff_drive_controller',
-                   '--param-file', controllers_yaml],
-        remappings=[('/diff_drive_controller/cmd_vel', '/mark1/locomotion/cmd_vel')],
-    )
+    def spawner(name):
+        return Node(package='controller_manager', executable='spawner', output='screen',
+                    arguments=[name, '--param-file', controllers_yaml])
 
-    # Load controllers once the model (and its gz_ros2_control manager) is up.
-    load_after_spawn = RegisterEventHandler(
+    jsb = spawner('joint_state_broadcaster')
+    wheels = spawner('wheel_velocity_controller')
+    steer = spawner('steer_position_controller')
+
+    # jsb after the model spawns; the two command controllers after jsb.
+    load_jsb = RegisterEventHandler(
         OnProcessExit(target_action=spawn, on_exit=[TimerAction(period=2.0, actions=[jsb])]))
-    load_ddc_after_jsb = RegisterEventHandler(
-        OnProcessExit(target_action=jsb, on_exit=[ddc]))
+    load_ctrls = RegisterEventHandler(
+        OnProcessExit(target_action=jsb, on_exit=[wheels, steer]))
 
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_ground.sdf',
                               description='world file in friday_description/worlds'),
         DeclareLaunchArgument('headless', default_value='true',
                               description='true = server only; false = open the Gazebo GUI'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_after_spawn, load_ddc_after_jsb,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls,
     ])

@@ -1,21 +1,17 @@
 <?xml version="1.0"?>
 <!--
-  Mark 1 — Stage 1 sim model: articulated six-wheel ROCKER-BOGIE.
+  Mark 1 — Stage 1 sim model (clean rebuild): RIGID six-wheel chassis with a
+  visually-correct rocker-bogie tube frame + ACKERMANN corner steering.
 
-  Frame: ROS REP-103 (+X forward, +Y left, +Z up). Wheels spin about Y.
-  Geometry measured from the scaled-Perseverance model
-  (Mechanics/reference-models/perseverance/mark1_sim_spec.md). At zero suspension
-  angle every wheel sits exactly at its measured (x, y) on the axle plane (z 0).
+  Frame: ROS REP-103 (+X fwd, +Y left, +Z up). base_link sits at the axle plane
+  (z=0); every wheel centre is at z=0, so all six rest flat on the ground at once
+  (rigid → no tipping, no lifted wheel). Wheel positions are the measured values
+  from mark1_sim_spec.md.
 
-  Per side: a PASSIVE rocker (revolute, axis Y) pivots on the body and carries the
-  front wheel + a PASSIVE bogie (revolute, axis Y); the bogie carries the mid and
-  rear wheels. Pure passive damped joints (no springs) — the rocker-bogie levels by
-  geometry + gravity, like the real rover. The 6 wheels are velocity-driven via
-  gz_ros2_control + diff_drive_controller (skid steer, left 3 / right 3).
-
-  Simplification (noted): the cross-body differential bar (a closed kinematic loop)
-  is omitted — URDF is a tree. On flat/symmetric ground the body settles level; on
-  rough ground it rolls slightly more than the real differential-coupled rover.
+  Steering: the 4 CORNER wheels steer about a vertical (Z) axis (Ackermann); the 2
+  MIDDLE wheels are drive-only. All 6 wheels are velocity-driven. This replaces the
+  earlier passive-articulated + skid-steer model, which tipped on turns and didn't
+  sit flat. (Articulated rocker-bogie flex is a later feature on top of this.)
 -->
 <robot name="mark1" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -24,38 +20,59 @@
   <!-- ===== measured parameters (m / kg) ===== -->
   <xacro:property name="wheel_radius" value="0.070"/>
   <xacro:property name="wheel_width"  value="0.050"/>
-  <xacro:property name="wheel_mass"   value="0.38"/>
-  <xacro:property name="body_mass"    value="6.0"/>
-  <xacro:property name="rocker_mass"  value="0.7"/>
-  <xacro:property name="bogie_mass"   value="0.4"/>
+  <xacro:property name="wheel_mass"   value="0.35"/>
+  <xacro:property name="body_mass"    value="8.4"/>
+  <xacro:property name="arm_r"        value="0.012"/>
 
   <material name="body_mat"><color rgba="0.85 0.83 0.78 1.0"/></material>
-  <material name="wheel_mat"><color rgba="0.15 0.15 0.17 1.0"/></material>
+  <material name="wheel_mat"><color rgba="0.13 0.13 0.15 1.0"/></material>
   <material name="arm_mat"><color rgba="0.55 0.55 0.58 1.0"/></material>
 
-  <!-- ===== body ===== -->
+  <!-- a tube (cylinder) visual spanning point 1 -> point 2, added inside a link -->
+  <xacro:macro name="tube" params="x1 y1 z1 x2 y2 z2">
+    <visual>
+      <origin xyz="${(x1+x2)/2} ${(y1+y2)/2} ${(z1+z2)/2}"
+              rpy="0 ${acos((z2-z1)/sqrt((x2-x1)**2+(y2-y1)**2+(z2-z1)**2))} ${atan2(y2-y1,x2-x1)}"/>
+      <geometry>
+        <cylinder radius="${arm_r}"
+                  length="${sqrt((x2-x1)**2+(y2-y1)**2+(z2-z1)**2)}"/>
+      </geometry>
+      <material name="arm_mat"/>
+    </visual>
+  </xacro:macro>
+
+  <!-- the rocker-bogie tube frame for one side (s=+1 left, -1 right).
+       body pivot (0, 0.21s, 0.13) -> front hub; -> bogie pivot (-0.14, 0.30s, 0.04);
+       bogie pivot -> mid hub and -> rear hub. -->
+  <xacro:macro name="side_frame" params="s">
+    <xacro:tube x1="0"     y1="${0.21*s}" z1="0.13" x2="0.302"  y2="${0.291*s}" z2="0"/>
+    <xacro:tube x1="0"     y1="${0.21*s}" z1="0.13" x2="-0.14"  y2="${0.30*s}"  z2="0.04"/>
+    <xacro:tube x1="-0.14" y1="${0.30*s}" z1="0.04" x2="0.015"  y2="${0.323*s}" z2="0"/>
+    <xacro:tube x1="-0.14" y1="${0.30*s}" z1="0.04" x2="-0.302" y2="${0.291*s}" z2="0"/>
+  </xacro:macro>
+
+  <!-- ===== base / body (rigid: body box + both side tube frames) ===== -->
   <link name="base_link">
     <visual>
-      <origin xyz="0.05 0 0.251"/>
+      <origin xyz="0 0 0.251"/>
       <geometry><box size="0.555 0.413 0.220"/></geometry>
       <material name="body_mat"/>
     </visual>
     <collision>
-      <origin xyz="0.05 0 0.251"/>
+      <origin xyz="0 0 0.251"/>
       <geometry><box size="0.555 0.413 0.220"/></geometry>
     </collision>
     <inertial>
-      <!-- CoM placed UNDER the rocker pivot line (x=0, the pivots' x) and LOW
-           (z=0.18, below the pivots at 0.28) so the sprung body hangs level and
-           self-centres — heavy components sit low and centred in the real deck. -->
-      <origin xyz="0.0 0 0.18"/>
+      <origin xyz="0 0 0.251"/>
       <mass value="${body_mass}"/>
-      <inertia ixx="0.110" ixy="0" ixz="0" iyy="0.178" iyz="0" izz="0.239"/>
+      <inertia ixx="0.153" ixy="0" ixz="0" iyy="0.249" iyz="0" izz="0.335"/>
     </inertial>
+    <xacro:side_frame s="1"/>
+    <xacro:side_frame s="-1"/>
   </link>
 
-  <!-- ===== a driven wheel (cylinder axis rotated to lie along Y) ===== -->
-  <xacro:macro name="wheel" params="name parent x y z">
+  <!-- ===== a wheel link (cylinder axis along Y) ===== -->
+  <xacro:macro name="wheel_link" params="name">
     <link name="wheel_${name}">
       <visual>
         <origin rpy="1.5708 0 0"/>
@@ -68,82 +85,78 @@
       </collision>
       <inertial>
         <mass value="${wheel_mass}"/>
-        <inertia ixx="0.000545" ixy="0" ixz="0" iyy="0.000931" iyz="0" izz="0.000545"/>
+        <inertia ixx="0.0005" ixy="0" ixz="0" iyy="0.00086" iyz="0" izz="0.0005"/>
       </inertial>
     </link>
-    <joint name="wheel_${name}_joint" type="continuous">
-      <parent link="${parent}"/>
-      <child link="wheel_${name}"/>
-      <origin xyz="${x} ${y} ${z}"/>
-      <axis xyz="0 1 0"/>
-      <dynamics damping="0.05" friction="0.10"/>
-    </joint>
     <gazebo reference="wheel_${name}">
       <mu1>1.2</mu1><mu2>1.2</mu2><kp>1e6</kp><kd>100.0</kd>
     </gazebo>
   </xacro:macro>
 
-  <!-- ===== a passive suspension arm (rocker or bogie) ===== -->
-  <xacro:macro name="arm" params="name parent x y z mass arm_len ixx iyy izz">
-    <link name="${name}">
-      <visual>
-        <origin xyz="${arm_len/2 - 0.16} 0 -0.04"/>
-        <geometry><box size="${arm_len} 0.03 0.03"/></geometry>
-        <material name="arm_mat"/>
-      </visual>
-      <inertial>
-        <mass value="${mass}"/>
-        <inertia ixx="${ixx}" ixy="0" ixz="0" iyy="${iyy}" iyz="0" izz="${izz}"/>
-      </inertial>
+  <!-- ===== corner wheel: steering knuckle (revolute Z) + driven wheel ===== -->
+  <xacro:macro name="corner" params="name x y">
+    <link name="${name}_steer">
+      <visual><geometry><cylinder radius="0.02" length="0.05"/></geometry><material name="arm_mat"/></visual>
+      <inertial><mass value="0.1"/>
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/></inertial>
     </link>
-    <joint name="${name}_joint" type="revolute">
-      <parent link="${parent}"/>
-      <child link="${name}"/>
-      <origin xyz="${x} ${y} ${z}"/>
-      <axis xyz="0 1 0"/>
-      <limit lower="-0.7" upper="0.7" effort="80" velocity="5"/>
-      <dynamics damping="1.5" friction="0.3"/>
+    <joint name="${name}_steer_joint" type="revolute">
+      <parent link="base_link"/><child link="${name}_steer"/>
+      <origin xyz="${x} ${y} 0"/><axis xyz="0 0 1"/>
+      <limit lower="-0.6" upper="0.6" effort="50" velocity="6"/>
+      <dynamics damping="0.3" friction="0.1"/>
+    </joint>
+    <xacro:wheel_link name="${name}"/>
+    <joint name="wheel_${name}_joint" type="continuous">
+      <parent link="${name}_steer"/><child link="wheel_${name}"/>
+      <origin xyz="0 0 0"/><axis xyz="0 1 0"/>
+      <dynamics damping="0.05"/>
     </joint>
   </xacro:macro>
 
-  <!-- ===== one side: rocker (front wheel) + bogie (mid + rear wheels) ===== -->
-  <xacro:macro name="leg" params="side s">
-    <!-- rocker pivot raised to z=0.28 (ABOVE the body CoM) so the sprung body
-         hangs like a pendulum and self-levels; the arms still articulate over
-         bumps but gravity recenters them. Wheels stay at their measured (x, y). -->
-    <xacro:arm name="rocker_${side}" parent="base_link"
-               x="0.0" y="${0.27*s}" z="0.28"
-               mass="${rocker_mass}" arm_len="0.45" ixx="0.001" iyy="0.012" izz="0.012"/>
-    <xacro:wheel name="${side}_front" parent="rocker_${side}"
-                 x="0.302" y="${0.021*s}" z="-0.28"/>
-    <xacro:arm name="bogie_${side}" parent="rocker_${side}"
-               x="-0.14" y="${0.03*s}" z="-0.28"
-               mass="${bogie_mass}" arm_len="0.32" ixx="0.0005" iyy="0.0035" izz="0.0035"/>
-    <xacro:wheel name="${side}_mid" parent="bogie_${side}"
-                 x="0.155" y="${0.023*s}" z="0.0"/>
-    <xacro:wheel name="${side}_rear" parent="bogie_${side}"
-                 x="-0.162" y="${-0.009*s}" z="0.0"/>
+  <!-- ===== middle wheel: drive-only (no steer) ===== -->
+  <xacro:macro name="mid" params="name x y">
+    <xacro:wheel_link name="${name}"/>
+    <joint name="wheel_${name}_joint" type="continuous">
+      <parent link="base_link"/><child link="wheel_${name}"/>
+      <origin xyz="${x} ${y} 0"/><axis xyz="0 1 0"/>
+      <dynamics damping="0.05"/>
+    </joint>
   </xacro:macro>
 
-  <xacro:leg side="left"  s="1"/>
-  <xacro:leg side="right" s="-1"/>
+  <xacro:corner name="left_front"  x="0.302"  y="0.291"/>
+  <xacro:corner name="left_rear"   x="-0.302" y="0.291"/>
+  <xacro:corner name="right_front" x="0.302"  y="-0.291"/>
+  <xacro:corner name="right_rear"  x="-0.302" y="-0.291"/>
+  <xacro:mid    name="left_mid"    x="0.015"  y="0.323"/>
+  <xacro:mid    name="right_mid"   x="0.015"  y="-0.323"/>
 
-  <!-- ===== ros2_control: velocity interface on each of the 6 wheels ===== -->
+  <!-- ===== ros2_control: 6 wheels (velocity) + 4 steer (position) ===== -->
   <ros2_control name="GazeboSimSystem" type="system">
     <hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>
-    <xacro:macro name="wheel_ctl" params="name">
+    <xacro:macro name="drive_jt" params="name">
       <joint name="wheel_${name}_joint">
         <command_interface name="velocity"/>
         <state_interface name="position"/>
         <state_interface name="velocity"/>
       </joint>
     </xacro:macro>
-    <xacro:wheel_ctl name="left_front"/>
-    <xacro:wheel_ctl name="left_mid"/>
-    <xacro:wheel_ctl name="left_rear"/>
-    <xacro:wheel_ctl name="right_front"/>
-    <xacro:wheel_ctl name="right_mid"/>
-    <xacro:wheel_ctl name="right_rear"/>
+    <xacro:macro name="steer_jt" params="name">
+      <joint name="${name}_steer_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+      </joint>
+    </xacro:macro>
+    <xacro:drive_jt name="left_front"/>
+    <xacro:drive_jt name="left_mid"/>
+    <xacro:drive_jt name="left_rear"/>
+    <xacro:drive_jt name="right_front"/>
+    <xacro:drive_jt name="right_mid"/>
+    <xacro:drive_jt name="right_rear"/>
+    <xacro:steer_jt name="left_front"/>
+    <xacro:steer_jt name="left_rear"/>
+    <xacro:steer_jt name="right_front"/>
+    <xacro:steer_jt name="right_rear"/>
   </ros2_control>
 
   <gazebo>
@@ -151,12 +164,6 @@
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <parameters>$(arg controllers_yaml)</parameters>
     </plugin>
-  </gazebo>
-
-  <!-- publish ALL joint angles (incl. passive rocker/bogie) on a gz topic -->
-  <gazebo>
-    <plugin filename="gz-sim-joint-state-publisher-system"
-            name="gz::sim::systems::JointStatePublisher"/>
   </gazebo>
 
 </robot>
