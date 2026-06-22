@@ -87,6 +87,13 @@ class TelemetryAgent(ModuleAgent):
         self.declare_parameter('mqtt_port', 1883)
         self.declare_parameter('operators_file', '')
         self.declare_parameter('nonce_store', '')
+        # Production link is MQTT 5 over mutual-TLS (EMQX). Off by default so the
+        # node-sim + unit tests use a plain local broker; the live broker sets these.
+        self.declare_parameter('mqtt_tls', False)
+        self.declare_parameter('mqtt_ca', '')
+        self.declare_parameter('mqtt_cert', '')
+        self.declare_parameter('mqtt_key', '')
+        self.declare_parameter('mqtt_client_id', '')   # '' -> '<module_id>-bridge'
 
         self._rover_id = self.get_parameter('rover_id').value
         self._inbound = queue.Queue()
@@ -140,10 +147,18 @@ class TelemetryAgent(ModuleAgent):
             ReleaseAuthority, AUTHORITY_RELEASE_TOPIC, qos.critical_reliable())
         self._request_srv = self.create_service(
             RequestAuthority, REQUEST_AUTHORITY_SERVICE, self._on_request_authority)
+        tls = None
+        if bool(self.get_parameter('mqtt_tls').value):
+            tls = {'ca_certs': self.get_parameter('mqtt_ca').value or None,
+                   'certfile': self.get_parameter('mqtt_cert').value or None,
+                   'keyfile': self.get_parameter('mqtt_key').value or None}
+        # mTLS ties authorization to the cert CN, so the client id must be the
+        # rover_id the broker ACL expects (not the internal module id).
+        client_id = self.get_parameter('mqtt_client_id').value or f'{self._module_id}-bridge'
         self._transport = MqttTransport(
             host=self.get_parameter('mqtt_host').value,
             port=int(self.get_parameter('mqtt_port').value),
-            client_id=f'{self._module_id}-bridge')
+            client_id=client_id, tls=tls)
 
     def activate_hardware(self) -> None:
         try:
