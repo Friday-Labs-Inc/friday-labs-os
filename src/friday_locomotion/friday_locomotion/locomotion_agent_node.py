@@ -21,9 +21,9 @@ dedicated serial link, validated on hardware-in-the-loop (see the budget doc).
 import math
 
 import rclpy
-from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.executors import MultiThreadedExecutor
+from std_msgs.msg import Float64MultiArray
 
 from friday_msgs.msg import (
     AuthorityLease,
@@ -36,7 +36,7 @@ from friday_module_agent import authority, qos
 from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
-from friday_locomotion import safety
+from friday_locomotion import kinematics, safety
 
 CONTROL_PERIOD_S = 0.05         # 20 Hz odometry
 SAFE_CHECK_PERIOD_S = 0.025     # 40 Hz safety watchdog
@@ -77,10 +77,12 @@ class LocomotionAgent(ModuleAgent):
         self._epoch = 0
         self.declare_parameter('nonce_store', '')
         self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
-        # sim bridge: if set, the same authority-gated, safe-stoppable motion is
-        # emitted as a TwistStamped wheel command so it drives Gazebo physics
-        # (empty by default -> pure node-sim behaviour, unchanged).
+        # sim drive-out: if both topics are set, the authority-gated, safe-stop-gated
+        # (v, w) is converted (kinematics.drive_and_steer) to 6 wheel velocities + 4
+        # corner steer angles and published to the gz_ros2_control command topics —
+        # the real OS driving the corner-steer Gazebo rover. Empty -> pure node-sim.
         self.declare_parameter('wheel_cmd_topic', '')
+        self.declare_parameter('steer_cmd_topic', '')
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
@@ -92,6 +94,7 @@ class LocomotionAgent(ModuleAgent):
         self._pulse_sub = None
         self._estop_sub = None
         self._wheel_cmd_pub = None
+        self._steer_cmd_pub = None
         self._motion_timer = None
         self._watchdog_timer = None
 
@@ -110,10 +113,14 @@ class LocomotionAgent(ModuleAgent):
         self._estop_sub = self.create_subscription(
             EmergencyStop, ESTOP_TOPIC, self._on_emergency_stop, qos.critical_reliable())
         wheel_topic = self.get_parameter('wheel_cmd_topic').value
-        if wheel_topic:
+        steer_topic = self.get_parameter('steer_cmd_topic').value
+        if wheel_topic and steer_topic:
             self._wheel_cmd_pub = self.create_lifecycle_publisher(
-                TwistStamped, wheel_topic, qos.state_default())
-            self.get_logger().info(f'sim wheel bridge -> {wheel_topic}')
+                Float64MultiArray, wheel_topic, qos.state_default())
+            self._steer_cmd_pub = self.create_lifecycle_publisher(
+                Float64MultiArray, steer_topic, qos.state_default())
+            self.get_logger().info(
+                f'sim corner-steer drive-out -> {wheel_topic} + {steer_topic}')
 
     def activate_hardware(self) -> None:
         self._x = self._y = self._theta = 0.0
@@ -230,14 +237,12 @@ class LocomotionAgent(ModuleAgent):
         odom.twist.twist.linear.x = self._v
         odom.twist.twist.angular.z = self._w
         self._odom_pub.publish(odom)
-        # sim: drive the physics wheels with the same (safe-stop-gated) v/w.
+        # sim: convert (v, w) -> 6 wheel speeds + 4 corner steer angles and drive the
+        # gz_ros2_control controllers. Safe-stop forces v=w=0 above -> all zero.
         if self._wheel_cmd_pub is not None:
-            tw = TwistStamped()
-            tw.header.stamp = odom.header.stamp
-            tw.header.frame_id = 'base_link'
-            tw.twist.linear.x = self._v
-            tw.twist.angular.z = self._w
-            self._wheel_cmd_pub.publish(tw)
+            wheel_vel, steer_ang = kinematics.drive_and_steer(self._v, self._w)
+            self._wheel_cmd_pub.publish(Float64MultiArray(data=wheel_vel))
+            self._steer_cmd_pub.publish(Float64MultiArray(data=steer_ang))
 
     def _publish_fault(self, category, severity, description) -> None:
         fr = FaultReport()
