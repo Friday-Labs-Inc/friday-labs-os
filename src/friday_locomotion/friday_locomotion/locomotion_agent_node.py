@@ -41,6 +41,10 @@ from friday_locomotion import kinematics, safety
 CONTROL_PERIOD_S = 0.05         # 20 Hz odometry
 SAFE_CHECK_PERIOD_S = 0.025     # 40 Hz safety watchdog
 SAFE_STOP_TIMEOUT_S = 0.1       # 100 ms safety-pulse loss -> safe-stop
+WATCHDOG_GRACE_S = 1.0          # arm the watchdog ~1 s after activate so the
+                                # best-effort safety-pulse subscription can connect
+                                # first (avoids a startup false-trip; rover isn't
+                                # moving yet). Runtime safe-stop latency is unchanged.
 
 CMD_TOPIC = '/mark1/locomotion/cmd_motion'
 ODOM_TOPIC = '/mark1/locomotion/odometry'
@@ -86,6 +90,7 @@ class LocomotionAgent(ModuleAgent):
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
+        self._activate_ns = 0
         # handles
         self._odom_pub = None
         self._fault_pub = None
@@ -129,6 +134,7 @@ class LocomotionAgent(ModuleAgent):
         now_ns = self.get_clock().now().nanoseconds
         self._last_ns = now_ns
         self._last_safety_pulse_ns = now_ns
+        self._activate_ns = now_ns
         self._motion_timer = self.create_timer(CONTROL_PERIOD_S, self._step)
         self._watchdog_timer = self.create_timer(SAFE_CHECK_PERIOD_S, self._check_safety)
 
@@ -199,6 +205,8 @@ class LocomotionAgent(ModuleAgent):
         if self._safe_state:
             return
         now_ns = self.get_clock().now().nanoseconds
+        if (now_ns - self._activate_ns) / 1e9 < WATCHDOG_GRACE_S:
+            return                      # startup grace: subscriptions still establishing
         pulse_age = (now_ns - self._last_safety_pulse_ns) / 1e9
         if pulse_age > SAFE_STOP_TIMEOUT_S:
             self._trip_safe_stop(
