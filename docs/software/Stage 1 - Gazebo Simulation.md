@@ -7,9 +7,10 @@
 >
 > **Status:** ✅ rover spawns level, drives straight, **corner-steers** through a
 > coordinated arc staying dead level, **the real OS drives it** (an authorized
-> `MotionCommand` moves the Gazebo rover and a Core death safe-stops it), **and it
-> all runs live in the Gazebo GUI** on the Legion PC. Verified headless *and*
-> on-screen. **Branch:** `stage1/gazebo`.
+> `MotionCommand` moves the Gazebo rover and a Core death safe-stops it), it **runs
+> live in the Gazebo GUI** on the Legion PC, and **a remote operator drives it through
+> the signed Command Center boundary** (forged/expired/replayed commands rejected at
+> the boundary). Verified headless *and* on-screen. **Branch:** `stage1/gazebo`.
 
 ---
 
@@ -144,6 +145,35 @@ and freeze on a Core kill in real time.
 > broken). Use `sudo docker -H unix:///var/run/docker.sock …` for both headless and
 > GUI runs → real-time physics, steady pulse, GPU render.
 
+### 5f. The full Command Center boundary in sim (`sim_cc.launch.py`)
+The last link: a *remote operator* driving the physics rover through the real
+security boundary. `sim_cc.launch.py` adds the Phase 3 **Telemetry agent** (the
+signed-CBOR-over-MQTT Command Center boundary) next to Core + Locomotion. The chain:
+
+```
+operator signs a MotionCommand (Ed25519)  →  publish to mark1/MARK1-001/cmd/motion on the broker
+  →  Telemetry VALIDATES (signature + allowlist + monotonic nonce + expiry + rover_id)
+  →  re-issues it AS the authority holder (MARK1-CORE-001) on /mark1/locomotion/cmd_motion
+  →  Locomotion accepts  →  physics rover drives.  Telemetry ACKs every command.
+```
+
+Verified against a real MQTT broker (4 commands, one operator):
+
+| Command | Operator ACK | Rover |
+|---|---|---|
+| **valid** v=0.3 | `accepted: True, OK` | drove **0 → 2.19 m** |
+| **forged** (payload tampered after signing) | `accepted: False, SECURITY_AUTH` | no motion |
+| **expired** | `accepted: False, EXPIRED` | no motion |
+| **replay** (reused nonce) | `accepted: False, SECURITY_REPLAY` | no motion |
+
+So a *signed, fresh, allowlisted* command moves the rover; a forged, stale, or
+replayed one is rejected at the boundary and **never reaches the wheels**. The OS
+can't tell this command came from sim physics rather than a real radio — that's the
+interface-first promise, end to end. (The matching operator side — the live
+[Friday Command Center](Friday Labs OS Software Manual.md) console + its
+mutual-TLS EMQX broker — is the remaining hook-up: `sim_cc` takes `mqtt_tls:=true`
++ ca/cert/key and a real operator key for that.)
+
 ---
 
 ## 6. Decisions & why
@@ -194,6 +224,7 @@ ros2 topic pub -r 10 --qos-durability transient_local /mark1/locomotion/cmd_moti
 | **Real OS drives physics** (`sim_os.launch.py`) | `ACCEPT motion` (MARK1-CORE-001) → rover drives + arcs via the OS |
 | **Safe-stop vs physics** | killed Core → **SAFE-STOP** (sim tolerance 0.6 s), rover halted, pose frozen 3 s later |
 | **Live GUI** | Gazebo window on the Legion screen; drive + corner-steer + safe-stop watched in real time |
+| **Command Center boundary** (`sim_cc.launch.py`) | signed command over a real MQTT broker → rover drove **2.19 m**; forged / expired / replay all **rejected**, no motion, each ACKed with its category |
 
 ---
 
@@ -207,8 +238,11 @@ ros2 topic pub -r 10 --qos-durability transient_local /mark1/locomotion/cmd_moti
 - **Passive rocker-bogie articulation** — deferred (it was unstable in turns; revisit
   with a cross-body differential + corner steering combined).
 - **Cross-body differential** — a *closed kinematic loop*; URDF is a tree. Noted, not hidden.
-- **Telemetry → Command Center boundary into sim** — route the full operator → CC →
-  rover command chain (signed envelope) through the live broker into the sim.
+- ~~**Telemetry → Command Center boundary into sim**~~ — ✅ **Done** (`sim_cc.launch.py`):
+  a signed command over a real MQTT broker drives the rover; forged/expired/replay are
+  rejected at the boundary. **Remaining:** connect to the *live* Command Center broker
+  (mutual-TLS EMQX) with a real enrolled operator key — needs the FCC side to grant the
+  rover an ACL rule + client cert (`mqtt_tls:=true` + ca/cert/key is already wired).
 - **Uneven-terrain stress with the new model** — re-run the ridge/rock traverse on the
   rigid corner-steer chassis.
 - **Sensors** (Stage 4: LiDAR/camera/IMU) and **Spark** (Stage 6) — later stages.
@@ -217,9 +251,11 @@ ros2 topic pub -r 10 --qos-durability transient_local /mark1/locomotion/cmd_moti
 
 ## 10. Where this goes next
 
-- Route the full command chain through the **Telemetry Command Center boundary** into
-  sim (operator → CC → signed `MotionCommand` → rover), then re-run the **bumpy-terrain**
-  traverse on the corner-steer chassis.
+- Connect `sim_cc` to the **live Command Center** broker (mutual-TLS EMQX) and drive
+  the sim rover from the real operator console — the boundary + `mqtt_tls` params are
+  done; it needs the FCC side to grant the rover an ACL rule + client cert + a real
+  enrolled operator key.
+- Re-run the **bumpy-terrain** traverse on the corner-steer chassis.
 - Then **Stage 2+** of the sim-bringup procedure (lifecycle agents → closed loop →
   sensing → fault injection → Spark → headless CI).
 
