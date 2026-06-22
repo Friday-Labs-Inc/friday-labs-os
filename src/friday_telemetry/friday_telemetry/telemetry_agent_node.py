@@ -26,8 +26,12 @@ import time
 
 import cbor2
 import rclpy
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+    Ed25519PrivateKey,
+    Ed25519PublicKey,
+)
 from lifecycle_msgs.msg import State as LCState
+from nav_msgs.msg import Odometry
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 
@@ -53,6 +57,8 @@ REQUEST_AUTHORITY_SERVICE = '/mark1/system/request_authority'
 
 LOCOMOTION_CMD_TOPIC = '/mark1/locomotion/cmd_motion'
 FAULT_TOPIC = '/mark1/telemetry/fault'
+LOCO_ODOM_TOPIC = '/mark1/locomotion/odometry'
+LOCO_FAULT_TOPIC = '/mark1/locomotion/fault'
 
 # Authority state (Authority Lease Protocol — "Failover" / "Authority Return").
 TLM_MONITORING = 'MONITORING'   # default: Core holds; Telemetry only watches it
@@ -94,6 +100,11 @@ class TelemetryAgent(ModuleAgent):
         self.declare_parameter('mqtt_cert', '')
         self.declare_parameter('mqtt_key', '')
         self.declare_parameter('mqtt_client_id', '')   # '' -> '<module_id>-bridge'
+        # Rover telemetry signing: sign odom/fault/ack out to the broker so the
+        # operator can trust they came from THIS rover. No key -> no egress (the
+        # node-sim + unit tests stay unchanged).
+        self.declare_parameter('rover_key_file', '')
+        self.declare_parameter('telemetry_rate_hz', 2.0)   # odom downsample to the broker
 
         self._rover_id = self.get_parameter('rover_id').value
         self._inbound = queue.Queue()
@@ -104,6 +115,13 @@ class TelemetryAgent(ModuleAgent):
         self._motion_pub = None
         self._fault_pub = None
         self._drain_timer = None
+        # --- outbound telemetry signing ---
+        self._rover_priv = None            # rover signing key (None = egress off)
+        self._odom_sub = None
+        self._loco_fault_sub = None
+        self._tlm_fault_sub = None
+        self._last_odom_pub_ns = 0
+        self._odom_min_period_ns = 0
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -159,6 +177,17 @@ class TelemetryAgent(ModuleAgent):
             host=self.get_parameter('mqtt_host').value,
             port=int(self.get_parameter('mqtt_port').value),
             client_id=client_id, tls=tls)
+        # outbound telemetry: sign odom (downsampled) + fault out to the operator
+        self._rover_priv = self._load_rover_key()
+        rate = float(self.get_parameter('telemetry_rate_hz').value)
+        self._odom_min_period_ns = int(1e9 / rate) if rate > 0 else 0
+        if self._rover_priv is not None:
+            self._odom_sub = self.create_subscription(
+                Odometry, LOCO_ODOM_TOPIC, self._on_odom, qos.state_default())
+            self._loco_fault_sub = self.create_subscription(
+                FaultReport, LOCO_FAULT_TOPIC, self._on_fault, qos.state_default())
+            self._tlm_fault_sub = self.create_subscription(
+                FaultReport, FAULT_TOPIC, self._on_fault, qos.state_default())
 
     def activate_hardware(self) -> None:
         try:
@@ -204,6 +233,56 @@ class TelemetryAgent(ModuleAgent):
         for sender_id, hex_pub in data.items():
             keys[sender_id] = Ed25519PublicKey.from_public_bytes(bytes.fromhex(hex_pub))
         return keys
+
+    def _load_rover_key(self):
+        """Load the rover's Ed25519 private key for signing outbound telemetry."""
+        path = self.get_parameter('rover_key_file').value
+        if not path:
+            self.get_logger().info(
+                'no rover_key_file; outbound telemetry will not be signed or bridged')
+            return None
+        try:
+            return Ed25519PrivateKey.from_private_bytes(
+                bytes.fromhex(open(path).read().strip()))
+        except (OSError, ValueError) as exc:
+            self.get_logger().error(f'cannot load rover_key_file {path}: {exc}')
+            return None
+
+    # ---- outbound telemetry (sign odom/fault out to the operator) ----------
+    def _on_odom(self, msg: Odometry) -> None:
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_odom_pub_ns < self._odom_min_period_ns:
+            return                                     # downsample the full-rate DDS odom
+        self._last_odom_pub_ns = now_ns
+        p, t = msg.pose.pose, msg.twist.twist
+        self._publish_signed_telemetry('tlm/odom', {
+            'class': 'odom',
+            'x': p.position.x, 'y': p.position.y, 'z': p.position.z,
+            'qx': p.orientation.x, 'qy': p.orientation.y,
+            'qz': p.orientation.z, 'qw': p.orientation.w,
+            'vx': t.linear.x, 'vy': t.linear.y, 'wz': t.angular.z,
+            'stamp': _t2s(msg.header.stamp)})
+
+    def _on_fault(self, msg: FaultReport) -> None:
+        self._publish_signed_telemetry('tlm/fault', {
+            'class': 'fault',
+            'severity': int(msg.severity), 'category': int(msg.category),
+            'description': msg.description,
+            'recommended_action': msg.recommended_action,
+            'module_id': msg.header.module_id, 'stamp': _t2s(msg.header.stamp)})
+
+    def _publish_signed_telemetry(self, suffix: str, payload: dict) -> None:
+        if self._rover_priv is None or self._transport is None:
+            return
+        now = time.time()
+        # Dedicated nonce namespace so telemetry nonces never collide with the
+        # command-router's issued-as-holder nonces.
+        nonce = self._next_issued_nonce(f'{self._rover_id}/tlm')
+        env = protocol.sign_telemetry(
+            rover_id=self._rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
+            expires_at=now + protocol.DEFAULT_EXPIRY_S, payload=payload,
+            private_key=self._rover_priv)
+        self._transport.publish(f'mark1/{self._rover_id}/{suffix}', protocol.encode(env))
 
     # ---- inbound (MQTT thread: validate + enqueue only) --------------------
     def _on_cc_message(self, topic: str, payload: bytes) -> None:
@@ -407,7 +486,17 @@ class TelemetryAgent(ModuleAgent):
     def _ack(self, msg_id, accepted: bool, category: str) -> None:
         if self._transport is None:
             return
-        body = cbor2.dumps({'msg_id': msg_id, 'accepted': accepted, 'category': category})
+        ack = {'msg_id': msg_id, 'accepted': accepted, 'category': category}
+        if self._rover_priv is not None:                  # signed ack (operator-verifiable)
+            now = time.time()
+            nonce = self._next_issued_nonce(f'{self._rover_id}/tlm')
+            env = protocol.sign_telemetry(
+                rover_id=self._rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
+                expires_at=now + protocol.DEFAULT_EXPIRY_S,
+                payload={'class': 'ack', **ack}, private_key=self._rover_priv)
+            body = protocol.encode(env)
+        else:
+            body = cbor2.dumps(ack)                        # plain ack (no rover key)
         self._transport.publish(f'mark1/{self._rover_id}/ack/{msg_id}', body)
 
     def _header(self):
