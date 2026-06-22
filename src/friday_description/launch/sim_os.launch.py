@@ -90,7 +90,8 @@ def generate_launch_description() -> LaunchDescription:
                 parameters=[{'managed_nodes': ['locomotion'], 'autostart_delay_s': 10.0}])
     loco = Node(package='friday_locomotion', executable='locomotion_agent', name='locomotion',
                 output='screen',
-                parameters=[{'wheel_cmd_topic': WHEEL_CMD, 'steer_cmd_topic': STEER_CMD}])
+                parameters=[{'wheel_cmd_topic': WHEEL_CMD, 'steer_cmd_topic': STEER_CMD,
+                             'safe_stop_timeout_s': 0.6}])
 
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),

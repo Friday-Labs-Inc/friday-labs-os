@@ -87,6 +87,11 @@ class LocomotionAgent(ModuleAgent):
         # the real OS driving the corner-steer Gazebo rover. Empty -> pure node-sim.
         self.declare_parameter('wheel_cmd_topic', '')
         self.declare_parameter('steer_cmd_topic', '')
+        # safe-stop pulse-loss timeout. 0.1 s is the HARDWARE (HIL firmware-watchdog
+        # over dedicated serial) spec; the sim loosens it via this param because the
+        # DDS pulse on a shared, physics-loaded CPU jitters (not a real safety event).
+        self.declare_parameter('safe_stop_timeout_s', SAFE_STOP_TIMEOUT_S)
+        self._safe_stop_timeout = float(self.get_parameter('safe_stop_timeout_s').value)
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
@@ -208,7 +213,7 @@ class LocomotionAgent(ModuleAgent):
         if (now_ns - self._activate_ns) / 1e9 < WATCHDOG_GRACE_S:
             return                      # startup grace: subscriptions still establishing
         pulse_age = (now_ns - self._last_safety_pulse_ns) / 1e9
-        if pulse_age > SAFE_STOP_TIMEOUT_S:
+        if pulse_age > self._safe_stop_timeout:
             self._trip_safe_stop(
                 f'safety pulse lost ({pulse_age * 1e3:.0f} ms)', pulse_age * 1e3)
         elif self._holder and (now_ns * 1e-9) >= self._lease_expiry_s:
