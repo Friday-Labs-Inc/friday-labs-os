@@ -169,7 +169,16 @@ Verified against a real MQTT broker (4 commands, one operator):
 So a *signed, fresh, allowlisted* command moves the rover; a forged, stale, or
 replayed one is rejected at the boundary and **never reaches the wheels**. The OS
 can't tell this command came from sim physics rather than a real radio — that's the
-interface-first promise, end to end. (The matching operator side — the live
+interface-first promise, end to end.
+
+**And the return path is signed too.** The rover signs its outbound telemetry with
+its *own* key (`rover_key_file`), so the operator can prove the data came from *this*
+rover — a spoofed position or a faked "all-clear" is rejected. It bridges odometry
+(downsampled to `telemetry_rate_hz`, default 2 Hz), fault reports, and the command
+ACK to `mark1/<rover>/tlm/*` as signed envelopes. Verified on Legion: an independent
+subscriber checked **66 odom + 2 ack + 1 fault — all signature-valid, zero bad** —
+and a **tampered odometry message failed verification** (the signature binds the
+data). Both directions of the boundary are now authenticated. (The matching operator side — the live
 [Friday Command Center](Friday Labs OS Software Manual.md) console + its
 mutual-TLS EMQX broker — is the remaining hook-up: `sim_cc` takes `mqtt_tls:=true`
 + ca/cert/key and a real operator key for that.)
@@ -225,6 +234,7 @@ ros2 topic pub -r 10 --qos-durability transient_local /mark1/locomotion/cmd_moti
 | **Safe-stop vs physics** | killed Core → **SAFE-STOP** (sim tolerance 0.6 s), rover halted, pose frozen 3 s later |
 | **Live GUI** | Gazebo window on the Legion screen; drive + corner-steer + safe-stop watched in real time |
 | **Command Center boundary** (`sim_cc.launch.py`) | signed command over a real MQTT broker → rover drove **2.19 m**; forged / expired / replay all **rejected**, no motion, each ACKed with its category |
+| **Signed telemetry return path** | rover-signed odom/fault/ack verified by an independent subscriber — **66 odom + 2 ack + 1 fault, 0 bad**; tampered odom **rejected** |
 
 ---
 
