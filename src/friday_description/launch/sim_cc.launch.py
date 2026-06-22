@@ -64,6 +64,9 @@ def generate_launch_description() -> LaunchDescription:
                    'mqtt_client_id': LaunchConfiguration('mqtt_client_id'),
                    'operators_file': LaunchConfiguration('operators_file'),
                    'nonce_store': LaunchConfiguration('nonce_store'),
+                   'rover_key_file': LaunchConfiguration('rover_key_file'),
+                   'telemetry_rate_hz': ParameterValue(
+                       LaunchConfiguration('telemetry_rate_hz'), value_type=float),
                }])
 
     return LaunchDescription([
@@ -79,5 +82,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument('mqtt_client_id', default_value=''),
         DeclareLaunchArgument('operators_file', default_value=''),
         DeclareLaunchArgument('nonce_store', default_value=''),
+        DeclareLaunchArgument('rover_key_file', default_value=''),
+        DeclareLaunchArgument('telemetry_rate_hz', default_value='2.0'),
         sim, core, loco, tlm,
     ])
