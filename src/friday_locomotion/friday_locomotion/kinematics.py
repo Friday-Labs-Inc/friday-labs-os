@@ -13,8 +13,11 @@ coordinated steering — inner wheels turn sharper and roll slower than outer).
 
 import math
 
-WHEEL_RADIUS = 0.070
+WHEEL_RADIUS = 0.065       # 130 mm DIY-replica wheel (in production); was 0.070 (140 mm).
 STEER_LIMIT = 0.6          # rad, matches the URDF steer joint limit
+# NOTE: wheel POSITIONS below are the sim model's own geometry, not yet derived from the
+# in-production DIY CAD — re-measure off Mechanics/reference-models/howtomechatronics-replica
+# and reconcile with the URDF when tightening sim↔hardware fidelity.
 _EPS = 1e-5
 
 # drive wheels in controller order: LF, LM, LR, RF, RM, RR  (x fwd, y left)

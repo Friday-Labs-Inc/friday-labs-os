@@ -18,7 +18,8 @@
   <xacro:arg name="controllers_yaml" default=""/>
 
   <!-- ===== measured parameters (m / kg) ===== -->
-  <xacro:property name="wheel_radius" value="0.070"/>
+  <xacro:property name="wheel_radius" value="0.065"/>  <!-- 130 mm DIY-replica wheel (in production); was 0.070 -->
+
   <xacro:property name="wheel_width"  value="0.050"/>
   <xacro:property name="wheel_mass"   value="0.35"/>
   <xacro:property name="body_mass"    value="8.4"/>
