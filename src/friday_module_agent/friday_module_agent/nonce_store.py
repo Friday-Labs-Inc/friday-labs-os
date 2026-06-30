@@ -11,11 +11,17 @@ CommandValidator and the Locomotion agent, and unit-tested directly.
 
 import json
 import os
+import threading
 
 
 class NonceStore:
     def __init__(self, path: str | None = None):
         self._path = path or None
+        # Guards the read-modify-write in commit(): the Telemetry CommandValidator
+        # runs on the paho network thread while the issuing path runs on the ROS
+        # executor, and commit() replaces the whole dict — without the lock a
+        # concurrent commit to a different source would silently lose an update.
+        self._lock = threading.Lock()
         self._nonces = self._load()
 
     def _load(self) -> dict:
@@ -29,13 +35,15 @@ class NonceStore:
 
     def last(self, source: str):
         """Highest nonce accepted for `source`, or None if never seen."""
-        return self._nonces.get(source)
+        with self._lock:
+            return self._nonces.get(source)
 
     def commit(self, source: str, nonce: int) -> None:
         """Record `nonce` as the new floor for `source` and persist durably."""
-        self._nonces = {**self._nonces, source: int(nonce)}   # immutable update
-        if self._path:
-            self._flush()
+        with self._lock:
+            self._nonces = {**self._nonces, source: int(nonce)}   # immutable update
+            if self._path:
+                self._flush()
 
     def _flush(self) -> None:
         # Atomic + durable: write a temp file, fsync, rename over the target.

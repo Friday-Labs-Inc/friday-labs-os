@@ -245,7 +245,9 @@ class TelemetryAgent(ModuleAgent):
             return Ed25519PrivateKey.from_private_bytes(
                 bytes.fromhex(open(path).read().strip()))
         except (OSError, ValueError) as exc:
-            self.get_logger().error(f'cannot load rover_key_file {path}: {exc}')
+            # Log the error TYPE only — the message can echo key-material fragments.
+            self.get_logger().error(
+                f'cannot load rover_key_file {path}: {type(exc).__name__}')
             return None
 
     # ---- outbound telemetry (sign odom/fault out to the operator) ----------
@@ -487,17 +489,21 @@ class TelemetryAgent(ModuleAgent):
         if self._transport is None:
             return
         ack = {'msg_id': msg_id, 'accepted': accepted, 'category': category}
-        if self._rover_priv is not None:                  # signed ack (operator-verifiable)
-            now = time.time()
-            nonce = self._next_issued_nonce(f'{self._rover_id}/tlm')
-            env = protocol.sign_telemetry(
-                rover_id=self._rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
-                expires_at=now + protocol.DEFAULT_EXPIRY_S,
-                payload={'class': 'ack', **ack}, private_key=self._rover_priv)
-            body = protocol.encode(env)
-        else:
-            body = cbor2.dumps(ack)                        # plain ack (no rover key)
+        nonce = self._next_issued_nonce(f'{self._rover_id}/tlm') if self._rover_priv else 0
+        body = self._build_ack_body(ack, self._rover_priv, self._rover_id, nonce)
         self._transport.publish(f'mark1/{self._rover_id}/ack/{msg_id}', body)
+
+    @staticmethod
+    def _build_ack_body(ack: dict, rover_priv, rover_id: str, nonce: int) -> bytes:
+        """ACK wire bytes: a signed envelope when the rover holds a key, else plain CBOR."""
+        if rover_priv is None:
+            return cbor2.dumps(ack)                        # plain ack (no rover key)
+        now = time.time()
+        env = protocol.sign_telemetry(                     # signed (operator-verifiable)
+            rover_id=rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
+            expires_at=now + protocol.DEFAULT_EXPIRY_S,
+            payload={'class': 'ack', **ack}, private_key=rover_priv)
+        return protocol.encode(env)
 
     def _header(self):
         from friday_msgs.msg import Mark1Header
