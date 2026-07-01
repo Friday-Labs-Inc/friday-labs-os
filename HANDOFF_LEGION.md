@@ -113,6 +113,33 @@ flags above (DISPLAY/XAUTHORITY/dri). Detached `--name friday_sim` so you can
   pulse; Locomotion obeys only the holder and runs the safe-stop watchdog;
   Telemetry self-promotes on Core loss and hands back cleanly.
 
+## Two-OS architecture (decided 2026-07-01)
+
+Mark 1 now runs **two distinct OS images** — see `docs/architecture/Mark 1 Compute Architecture.md`:
+
+| Image | Repo | Target hardware | Stack |
+|-------|------|-----------------|-------|
+| **`friday-core-os`** | [Friday-Labs-Inc/friday-core-os](https://github.com/Friday-Labs-Inc/friday-core-os) | Pi 4B 8 GB | Ubuntu 24.04 + ROS 2 Jazzy + Friday Labs OS |
+| **`friday-telemetry-os`** | [Friday-Labs-Inc/friday-telemetry-os](https://github.com/Friday-Labs-Inc/friday-telemetry-os) | Pi 3B+ 1 GB | Debian 12 Lite — no ROS 2, pure network gateway |
+
+**Internal bridge:** Core Hub runs `mosquitto` on `10.0.1.1:1883` (Ethernet);
+Telemetry Gateway connects at `10.0.1.2`, relays signed CBOR envelopes to the
+external EMQX over 4G/LoRa/Wi-Fi. No DDS crosses that boundary.
+
+**Safe-stop is independent:** Locomotion ESP32 watchdog fires in 100 ms when the
+authority pulse stops — neither Pi needs to be alive for safe-stop.
+
+## Hardware inventory (actual, corrected 2026-07-01)
+
+| Board | Spec | Role |
+|-------|------|------|
+| Pi 4B 8 GB | owned | Core Hub (`friday-core-os`) |
+| Pi 3B+ 1 GB | owned | Telemetry Gateway (`friday-telemetry-os`) |
+| 4× ESP32-WROOM-32 | owned | 1× Mobility Hub + 3 spare |
+| 2× 4G USB dongles | owned | Telemetry Gateway (dual-carrier) |
+
+**BOM to order: ~₹30,355** — see `docs/build/MK1_Electronics_BOM.md`.
+
 ## Open items (genuinely blocked on the FCC side)
 
 1. **Live FCC broker hookup** — `sim_cc` already takes `mqtt_tls:=true` +
@@ -131,6 +158,18 @@ flags above (DISPLAY/XAUTHORITY/dri). Detached `--name friday_sim` so you can
 3. **Bumpy-terrain stress with the new model** — re-run the ridge/rock traverse
    on the rigid corner-steer chassis (the old bumpy test was on the articulated
    model that got rebuilt).
+
+## Open items (hardware bring-up)
+
+4. **ICD revision** — Drive-deck pin map needs updating for built-in encoders
+   (PCA9685 + PCNT, drop AS5600/TCA9548A). PCA9685/INA219 I2C address collision
+   (both default 0x40) — re-strap one before they share the bus.
+5. **Electronics Backbone.md** — still says 14.8 V / Pi 5; needs updating to
+   12 V / Pi 4B + Pi 3B+.
+6. **Core Hub bring-up on Pi 4B** — flash `friday-core-os`, build ROS 2 workspace,
+   run Friday Labs OS.
+7. **Telemetry Gateway bring-up on Pi 3B+** — flash `friday-telemetry-os`, plug
+   dual 4G dongles, test MQTT relay to CC.
 
 ## Conventions
 

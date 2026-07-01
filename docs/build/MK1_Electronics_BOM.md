@@ -36,7 +36,7 @@
 | 11.1 V 5200 mAh 3S 60C LiPo (XT60) | 1 | 3S, 60C, XT60 | embeddinator.com | 3,577.00 | 3,577.00 | Yes (3) | ✓ |
 | iMAX B6-AC balance charger | 1 | 3S AC/DC, built-in adapter | flyrobo.in | 2,591.00 | 2,591.00 | Yes | ✓ |
 | XL4016E1 8 A buck — **servo 6 V rail** | 1 | 8–36 V in → set 6 V, 8 A; trim pot before install | robocraze.com | 173.00 | 173.00 | Yes (66) | ✓ |
-| XL4016E1 8 A buck — **logic 5 V rail** | 1 | set 5 V, 8 A (2× Pi4 ~5 A + 3× ESP32 ~1.5 A); heatsink >6 A | robocraze.com | 173.00 | 173.00 | Yes (66) | ✓ |
+| XL4016E1 8 A buck — **logic 5 V rail** | 1 | set 5 V, 8 A (Pi 4B ~3 A + Pi 3B+ ~2.5 A + ESP32 ~0.5 A); heatsink >6 A | robocraze.com | 173.00 | 173.00 | Yes (66) | ✓ |
 | E-stop relay (12 V coil, 30 A, NC path) + 22 mm latching mushroom button | 1 | fail-open motor-rail kill; button in coil circuit only (10 A), not the 30 A path | robocraze.com | 249.00 | 249.00 | Yes | ✓ |
 | INA219 I²C voltage/current monitor | 1 | 0–26 V, bidirectional current (pack monitoring) | robocraze.com | 233.00 | 233.00 | Yes (29) | ✓ |
 
@@ -46,12 +46,13 @@
 
 | Part | Qty | Key spec | Vendor | INR each | Line total | Stock | ✓ |
 |------|-----|----------|--------|----------|-----------|-------|---|
-| Raspberry Pi 4B | 2 | Core Pi + Telemetry Pi | — | **OWNED — ₹0** | 0 | — | — |
-| ESP32-WROOM-32 (38-pin, CP2102) | 3 | Drive / Steer / Sensor decks | — | **OWNED — ₹0** | 0 | — | — |
+| Raspberry Pi 4B 8 GB | 1 | **Core Hub** — ROS 2 Jazzy, full Friday Labs OS | — | **OWNED — ₹0** | 0 | — | — |
+| Raspberry Pi 3B+ 1 GB | 1 | **Telemetry Gateway** — Linux gateway, dual 4G, LoRa, routing | — | **OWNED — ₹0** | 0 | — | — |
+| ESP32-WROOM-32 (38-pin, CP2102) | 4 | 1× Mobility Hub + 3× spare (Lab Deck / Aerial Bay / bench) | — | **OWNED — ₹0** | 0 | — | — |
 | PCA9685 16-ch I²C PWM driver | 1 | offloads motor+servo PWM over I²C, frees GPIO for quadrature encoders | thinkrobotics.com | 429.99 | 429.99 | 7 (confirm) | ✓ |
-| SanDisk Ultra 32 GB A1 microSD | 2 | Pi 4B boot media | robocraze.com | 1,454.00 | 2,908.00 | Yes (18) | ✓ |
+| SanDisk Ultra 32 GB A1 microSD | 3 | Pi 4B + Pi 3B+ + spare | robocraze.com | 1,454.00 | 4,362.00 | Yes (18) | ✓ |
 
-**COMPUTE & CONTROL (new spend): ₹3,337.99**
+**COMPUTE & CONTROL (new spend): ₹4,791.99**
 
 ### SENSORS
 
@@ -61,6 +62,18 @@
 
 **SENSORS subtotal: ₹2,068.00**
 > LiDAR / camera / GPS / mmWave deferred — see Buy-now vs Later.
+
+### TELEMETRY COMMS (Telemetry Gateway — Pi 3B+)
+
+| Part | Qty | Key spec | Vendor | INR each | Line total | Stock | ✓ |
+|------|-----|----------|--------|----------|-----------|-------|---|
+| 4G LTE USB dongle | 2 | dual-carrier (Jio + Airtel), USB to Pi 3B+ | — | **OWNED — ₹0** | 0 | — | — |
+| Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262 LoRa 433 MHz, antenna included) | 1 | 10 km+ LOS, 148 dBm link budget, ESP32-S3 on-board, USB-C to Pi | robocraze.com / aliexpress | 2,200.00 | 2,200.00 | Check | — |
+| Prepaid SIM cards (Jio + Airtel) | 2 | dual-carrier redundancy (if not already in the dongles) | local | 250.00 | 500.00 | — | — |
+
+**TELEMETRY COMMS subtotal: ₹2,700.00**
+> 4G dongles already owned — plug into Pi 3B+ USB, managed via ModemManager.
+> LoRa = ESP32-S3 combo board (self-contained with antenna). Pi 3B+ routes all traffic.
 
 ### CONNECTORS & MISC
 
@@ -80,26 +93,30 @@
 | Drive | 7,187.94 |
 | Steering | 5,999.96 |
 | Power & Safety | 6,996.00 |
-| Compute & Control (new) | 3,337.99 |
+| Compute & Control (new) | 4,791.99 |
 | Sensors | 2,068.00 |
+| Telemetry Comms | 2,700.00 |
 | Connectors & Misc | 611.00 |
-| **GRAND TOTAL (new spend)** | **₹26,200.89** |
+| **GRAND TOTAL (new spend)** | **₹30,354.89** |
 
-Excludes: the owned 2× Pi 4B + 3× ESP32, local 10–14 AWG silicone wire, and per-vendor
-shipping. DS3225 servo substitution lowers the total to ≈₹25,197.
+Excludes: the owned 1× Pi 4B 8 GB + 1× Pi 3B+ 1 GB + 4× ESP32, local 10–14 AWG silicone
+wire, and per-vendor shipping. DS3225 servo substitution lowers steering to ≈₹4,996.
 
 ---
 
 ## Buy now vs later
 
-**Buy now (first bring-up — drive + steer + safe-stop + sim-on-hardware loop):** the
-6 motors, 6 DRV8871, 4 servos (or DS3225), 3S LiPo, iMAX charger, 2× XL4016E1 bucks,
-E-stop kit, PCA9685, INA219, BNO085 (**order now — 1 in stock**), 2× microSD, the
-connector/fuse kits.
+**Buy now (prototype bring-up — drive + steer + safe-stop + comms):**
+
+- **Mobility Hub:** 6 motors, 6 DRV8871, 4 servos (or DS3225), PCA9685, BNO085 (**order now — 1 in stock**), INA219
+- **Power & Safety:** 3S LiPo, iMAX charger, 2× XL4016E1 bucks (6 V servo + 5 V logic), E-stop kit
+- **Telemetry Gateway:** 1× Heltec LoRa32 V3 (ESP32-S3+LoRa combo), 2× SIM cards (4G USB dongles already owned)
+- **Compute:** 3× microSD, connector/fuse kits
 
 **Defer (Phase 2+ sensing — rover navigates + sim validates without them):** LiDAR
 (RPLIDAR A1/A2), camera (OAK-D / RealSense / Pi Cam), GPS/RTK, mmWave human-detection
-(see `docs/addendums/mmWave Human Detection.md`), extra ToF/environmental sensors.
+(see `docs/addendums/mmWave Human Detection.md`), extra ToF/environmental sensors,
+Coral TPU, NVMe storage, supercap hold-up.
 
 ---
 
