@@ -27,5 +27,5 @@ def test_signed_ack_is_a_verifiable_envelope():
     body = TelemetryAgent._build_ack_body(ACK, key, 'MARK1-001', 5)
     env = cbor2.loads(body)
     assert env['sender_id'] == 'MARK1-001' and 'signature' in env
-    assert env['payload'] == {'class': 'ack', **ACK}
+    assert cbor2.loads(env['payload']) == {'class': 'ack', **ACK}   # payload is an opaque bstr
     key.public_key().verify(env['signature'], protocol._signing_bytes(env))   # raises if bad

@@ -47,21 +47,25 @@ def cmd_provision(args) -> int:
 
 def cmd_send(args) -> int:
     priv = _raw_private(args.key_file)
-    now = time.time()
-    expires_at = now - 5.0 if args.mode == 'expired' else now + protocol.DEFAULT_EXPIRY_S
+    now = int(time.time() * 1000)                      # int64 epoch-ms
+    # expired: well outside the ±5 s skew window, not just past expires_at.
+    expires_at = now - 60_000 if args.mode == 'expired' else now + protocol.DEFAULT_EXPIRY_MS
     payload = {
         'class': 'motion',
         'type': 1,  # TYPE_VELOCITY
         'linear_velocity': args.linear,
         'angular_velocity': args.angular,
     }
+    # Serialize the payload ONCE; it travels and is signed as an opaque bstr.
+    payload_bytes = cbor2.dumps(payload, canonical=True)
     envelope = protocol.build_envelope(
         rover_id=args.rover, sender_id=args.operator_id, msg_id=args.nonce,
         nonce=args.nonce, issued_at=now, expires_at=expires_at,
-        payload=payload, private_key=priv)
+        payload=payload_bytes, private_key=priv)
     if args.mode == 'forged':
         # Tamper the payload AFTER signing -> signature no longer matches.
-        envelope['payload'] = {**payload, 'linear_velocity': args.linear + 9.0}
+        envelope['payload'] = cbor2.dumps(
+            {**payload, 'linear_velocity': args.linear + 9.0}, canonical=True)
 
     transport = MqttTransport(host=args.host, port=args.port,
                               client_id=f'cc-{args.operator_id}-{args.nonce}')
@@ -69,9 +73,11 @@ def cmd_send(args) -> int:
 
     def _read_ack(raw):
         # ACKs are plain CBOR, or a signed envelope when the rover holds a key;
-        # unwrap the envelope to its payload so either form prints cleanly.
+        # unwrap the envelope to its payload (an opaque bstr) so either form prints.
         msg = cbor2.loads(raw)
-        return msg.get('payload', msg) if isinstance(msg, dict) else msg
+        if isinstance(msg, dict) and 'payload' in msg:
+            return cbor2.loads(msg['payload'])         # signed env: decode the bstr
+        return msg                                      # plain CBOR ack (no rover key)
 
     transport.subscribe(f'mark1/{args.rover}/ack/#', lambda t, p: acks.append(_read_ack(p)))
     transport.connect()

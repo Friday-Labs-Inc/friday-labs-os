@@ -28,7 +28,12 @@ PROTOCOL_MAJOR = 0
 PROTOCOL_MINOR = 1
 PROTOCOL_PATCH = 0
 
-DEFAULT_EXPIRY_S = 30.0
+# Freshness window + clock-skew tolerance, in MILLISECONDS (the wire timestamps are
+# int64 epoch-ms). A field rover's clock drifts with no guaranteed time sync, so the
+# nonce floor is the HARD replay guarantee and the timestamp is a soft freshness gate
+# with ±SKEW_MS tolerance on both ends of [issued_at, expires_at].
+DEFAULT_EXPIRY_MS = 30_000
+SKEW_MS = 5_000
 
 # Rejection categories (mirror friday_msgs/FaultReport CATEGORY_* + outcomes).
 OK = "OK"
@@ -53,7 +58,16 @@ def _signing_bytes(envelope: dict) -> bytes:
 
     Binds payload, nonce, rover_id, expiry AND sender_id / msg_id / issued_at /
     protocol_version — a superset of the spec's minimum, so nothing signed can be
-    swapped. Canonical CBOR makes the encoding deterministic on both sides.
+    swapped. Canonical CBOR (RFC 8949 §4.2) makes the encoding deterministic on both
+    sides.
+
+    `payload` is carried as an opaque CBOR byte-string (bstr): the producer
+    serializes it ONCE and those exact bytes are signed — never decoded-then-
+    re-encoded. That keeps floats inside the payload (a pose, a velocity setpoint)
+    off the signature path, where different CBOR libraries would otherwise shrink
+    them to different widths and break the seal across the JS/Python/C++ boundary.
+    Only the outer map (ints + text strings + the nested protocol_version int map +
+    the payload bstr) has to canonicalize identically everywhere.
     """
     unsigned = {k: v for k, v in envelope.items() if k != "signature"}
     return cbor2.dumps(unsigned, canonical=True)
@@ -61,7 +75,19 @@ def _signing_bytes(envelope: dict) -> bytes:
 
 def build_envelope(*, rover_id, sender_id, msg_id, nonce, issued_at, expires_at,
                    payload, private_key: Ed25519PrivateKey) -> dict:
-    """Build and sign a command/telemetry envelope (operator side)."""
+    """Build and sign a command/telemetry envelope (operator side).
+
+    `payload` MUST be pre-serialized bytes (an opaque CBOR bstr) — passing a dict
+    would let it be re-encoded on each side, reintroducing the cross-language float
+    drift the bstr design exists to prevent. `issued_at`/`expires_at` MUST be int64
+    epoch-ms; a float would canonicalize to a non-portable width.
+    """
+    if not isinstance(payload, (bytes, bytearray)):
+        raise TypeError(
+            "payload must be pre-serialized bytes (opaque CBOR bstr), not "
+            f"{type(payload).__name__} — re-encoding it breaks cross-language signatures")
+    if not (isinstance(issued_at, int) and isinstance(expires_at, int)):
+        raise TypeError("issued_at/expires_at must be int64 epoch-ms, not float")
     envelope = {
         "protocol_version": {
             "major": PROTOCOL_MAJOR, "minor": PROTOCOL_MINOR, "patch": PROTOCOL_PATCH,
@@ -107,7 +133,8 @@ class CommandValidator:
     """Validates inbound command envelopes against the allowlist + replay state.
 
     `operator_keys` maps sender_id -> Ed25519PublicKey (the rover's allowlist).
-    `now` is a callable returning the current unix time (injected for tests).
+    `now` is a callable returning the current unix time in MILLISECONDS (injected
+    for tests), matching the int64 epoch-ms wire timestamps.
     """
 
     def __init__(self, rover_id: str, operator_keys: dict, now, nonce_store=None):
@@ -119,9 +146,11 @@ class CommandValidator:
 
     def validate(self, envelope: dict) -> Validation:
         pv = envelope.get("protocol_version", {})
-        if pv.get("major") != PROTOCOL_MAJOR:
+        # Pre-1.0, minor is breaking: require exact (major, minor).
+        if (pv.get("major"), pv.get("minor")) != (PROTOCOL_MAJOR, PROTOCOL_MINOR):
             return Validation(False, PROTOCOL_MISMATCH,
-                              f"protocol major {pv.get('major')} != {PROTOCOL_MAJOR}")
+                              f"protocol {pv.get('major')}.{pv.get('minor')} != "
+                              f"{PROTOCOL_MAJOR}.{PROTOCOL_MINOR} (pre-1.0: minor is breaking)")
         if envelope.get("rover_id") != self._rover_id:
             return Validation(False, ROVER_MISMATCH,
                               f"rover_id {envelope.get('rover_id')} != {self._rover_id}")
@@ -133,8 +162,11 @@ class CommandValidator:
             key.verify(envelope["signature"], _signing_bytes(envelope))
         except (InvalidSignature, KeyError, TypeError):
             return Validation(False, SECURITY_AUTH, "signature invalid")
-        if float(envelope.get("expires_at", 0)) < self._now():
-            return Validation(False, EXPIRED, "command expired")
+        now_ms = self._now()
+        if not (envelope.get("issued_at", 0) - SKEW_MS
+                <= now_ms <= envelope.get("expires_at", 0) + SKEW_MS):
+            return Validation(False, EXPIRED,
+                              "outside freshness window [issued_at-5s, expires_at+5s]")
         nonce = envelope.get("nonce")
         last = self._nonces.last(sender)
         if last is not None and nonce <= last:

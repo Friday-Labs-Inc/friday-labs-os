@@ -76,6 +76,11 @@ def _t2s(t) -> float:
     return t.sec + t.nanosec * 1e-9
 
 
+def _now_ms() -> int:
+    """Current unix time in milliseconds (the int64 epoch-ms wire timestamps)."""
+    return int(time.time() * 1000)
+
+
 class TelemetryAgent(ModuleAgent):
     """Command Center boundary as a lifecycle module agent."""
 
@@ -150,7 +155,7 @@ class TelemetryAgent(ModuleAgent):
         self._validator = protocol.CommandValidator(
             rover_id=self._rover_id,
             operator_keys=self._load_operator_allowlist(),
-            now=time.time, nonce_store=self._nonce_store)
+            now=_now_ms, nonce_store=self._nonce_store)
         self._authority_sub = self.create_subscription(
             AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable())
         # failover: watch Core's safety pulse; on promotion, publish lease + pulse
@@ -276,13 +281,15 @@ class TelemetryAgent(ModuleAgent):
     def _publish_signed_telemetry(self, suffix: str, payload: dict) -> None:
         if self._rover_priv is None or self._transport is None:
             return
-        now = time.time()
+        now = _now_ms()
         # Dedicated nonce namespace so telemetry nonces never collide with the
         # command-router's issued-as-holder nonces.
         nonce = self._next_issued_nonce(f'{self._rover_id}/tlm')
+        # Serialize the payload ONCE; it travels and is signed as an opaque bstr.
         env = protocol.sign_telemetry(
             rover_id=self._rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
-            expires_at=now + protocol.DEFAULT_EXPIRY_S, payload=payload,
+            expires_at=now + protocol.DEFAULT_EXPIRY_MS,
+            payload=cbor2.dumps(payload, canonical=True),
             private_key=self._rover_priv)
         self._transport.publish(f'mark1/{self._rover_id}/{suffix}', protocol.encode(env))
 
@@ -319,7 +326,11 @@ class TelemetryAgent(ModuleAgent):
         if cmd_class != 'motion':
             self.get_logger().warning(f'unknown command class "{cmd_class}"; dropping')
             return
-        p = envelope['payload']
+        try:
+            p = cbor2.loads(envelope['payload'])       # opaque bstr -> dict
+        except Exception:  # noqa: BLE001 - signed by a trusted sender, but still guard bad CBOR
+            self.get_logger().warning('motion payload undecodable; dropping')
+            return
         cmd = MotionCommand()
         cmd.header = self._header()
         cmd.type = int(p.get('type', MotionCommand.TYPE_STOP))
@@ -335,9 +346,9 @@ class TelemetryAgent(ModuleAgent):
             return
         cmd.source = self._authority_holder
         cmd.nonce = self._next_issued_nonce(self._authority_holder)
-        exp = float(envelope.get('expires_at', 0.0))
-        cmd.expires_at.sec = int(exp)
-        cmd.expires_at.nanosec = int((exp - int(exp)) * 1e9)
+        exp_ms = int(envelope.get('expires_at', 0))    # int64 epoch-ms
+        cmd.expires_at.sec = exp_ms // 1000
+        cmd.expires_at.nanosec = (exp_ms % 1000) * 1_000_000
         self._motion_pub.publish(cmd)
         if cmd.type == MotionCommand.TYPE_VELOCITY and \
                 (cmd.linear_velocity or cmd.angular_velocity):
@@ -498,11 +509,12 @@ class TelemetryAgent(ModuleAgent):
         """ACK wire bytes: a signed envelope when the rover holds a key, else plain CBOR."""
         if rover_priv is None:
             return cbor2.dumps(ack)                        # plain ack (no rover key)
-        now = time.time()
+        now = _now_ms()
         env = protocol.sign_telemetry(                     # signed (operator-verifiable)
             rover_id=rover_id, msg_id=nonce, nonce=nonce, issued_at=now,
-            expires_at=now + protocol.DEFAULT_EXPIRY_S,
-            payload={'class': 'ack', **ack}, private_key=rover_priv)
+            expires_at=now + protocol.DEFAULT_EXPIRY_MS,
+            payload=cbor2.dumps({'class': 'ack', **ack}, canonical=True),
+            private_key=rover_priv)
         return protocol.encode(env)
 
     def _header(self):
