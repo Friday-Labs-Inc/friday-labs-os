@@ -51,6 +51,25 @@ def sensor_stream() -> QoSProfile:
     )
 
 
+def heartbeat_monitor() -> QoSProfile:
+    """Health-monitor SUBSCRIPTION to module heartbeats.
+
+    Same wire QoS as heartbeat() but with NO deadline/liveliness REQUEST:
+    hardware module agents publish through the micro-ROS (XRCE) agent, whose
+    binary entity creation cannot offer finite deadline/liveliness -- a
+    requesting subscriber would refuse the writer outright (incompatible QoS)
+    and hear nothing. Liveness is enforced in software by the registry age
+    check (DEGRADED/DEAD budgets), which is the contract mechanism; Pi-side
+    agents may still OFFER deadline+liveliness on their publishers.
+    """
+    return QoSProfile(
+        reliability=QoSReliabilityPolicy.BEST_EFFORT,
+        durability=QoSDurabilityPolicy.VOLATILE,
+        history=QoSHistoryPolicy.KEEP_LAST,
+        depth=1,
+    )
+
+
 def heartbeat() -> QoSProfile:
     """Heartbeats: BEST_EFFORT, KEEP_LAST 1, with Deadline + Liveliness."""
     return QoSProfile(
