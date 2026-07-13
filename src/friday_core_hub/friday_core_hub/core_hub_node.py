@@ -12,6 +12,8 @@ Real fault recovery, authority-lease, and full health live in later phases.
 """
 
 import collections
+import json
+import os
 
 import rclpy
 from lifecycle_msgs.msg import State as LCState
@@ -30,6 +32,8 @@ from friday_core_hub.registry import ModuleRegistry
 
 PRESENCE_TOPIC = '/mark1/system/presence'
 REGISTER_SERVICE = '/mark1/system/register_module'
+# Snapshot for the FCC config plane, served read-only by the os-control agent.
+REGISTRY_EXPORT = '/var/lib/friday/registry.json'  # inside THIS service's writable state dir
 
 DEGRADED_AGE_S = 1.0      # ~3 missed 200 ms heartbeats / 500 ms deadlines
 DEAD_AGE_S = 1.5          # liveliness lease + margin
@@ -73,6 +77,7 @@ class CoreHub(Node):
             callback_group=self._cb_group)
 
         self.create_timer(0.5, self._check_liveness)
+        self._export_registry()  # honest (possibly empty) snapshot at boot -- never serve a stale file
 
         # --- safety-supervisor: authority lease + safety pulse (Phase 4) ---
         # Authority is *earned through a boot observe-window*, not assumed: a clean
@@ -142,6 +147,7 @@ class CoreHub(Node):
                 f'caps={list(request.capabilities)}')
             self._subscribe_heartbeat(h.module_id, result.assigned_namespace)
             self._publish_presence(h.module_id, True)
+            self._export_registry()
         else:
             self.get_logger().warning(
                 f'rejected {h.module_id}: {result.reason}')
@@ -265,7 +271,7 @@ class CoreHub(Node):
             return
         topic = f'{namespace}/heartbeat'
         self._hb_subs[module_id] = self.create_subscription(
-            Heartbeat, topic, self._on_heartbeat, qos.heartbeat(),
+            Heartbeat, topic, self._on_heartbeat, qos.heartbeat_monitor(),
             callback_group=self._cb_group)
         self._last_seen_ns[module_id] = self.get_clock().now().nanoseconds
         self._liveness[module_id] = LIVENESS_OK
@@ -275,6 +281,9 @@ class CoreHub(Node):
         self._last_seen_ns[msg.header.module_id] = self.get_clock().now().nanoseconds
 
     def _check_liveness(self) -> None:
+        self._export_tick = getattr(self, '_export_tick', 0) + 1
+        if self._export_tick % 10 == 0 and self._last_seen_ns:
+            self._export_registry()
         now = self.get_clock().now().nanoseconds
         for module_id, last in self._last_seen_ns.items():
             age = (now - last) / 1e9
@@ -286,11 +295,45 @@ class CoreHub(Node):
                 new = LIVENESS_OK
             if new != self._liveness.get(module_id):
                 self._liveness[module_id] = new
-                level = self.get_logger().info if new == LIVENESS_OK \
-                    else self.get_logger().warning
-                level(f'{module_id} liveness -> {new} (age {age:.2f}s)')
+                # rclpy caches severity per call site -- logging .info and
+                # .warning from ONE line raises ValueError on a recovery. Keep
+                # two distinct call sites.
+                msg = f'{module_id} liveness -> {new} (age {age:.2f}s)'
+                if new == LIVENESS_OK:
+                    self.get_logger().info(msg)
+                else:
+                    self.get_logger().warning(msg)
                 if new == LIVENESS_DEAD:
                     self._publish_presence(module_id, False)
+                self._export_registry()
+
+    def _export_registry(self) -> None:
+        '''Atomic JSON snapshot of the registry + liveness for the FCC.'''
+        now = self.get_clock().now().nanoseconds
+        mods = []
+        for mid, rec in self._registry.modules.items():
+            last = self._last_seen_ns.get(mid)
+            mods.append({
+                'module_id': rec.module_id,
+                'hardware_type': rec.hardware_type,
+                'sw_version': rec.sw_version,
+                'fw_version': rec.fw_version,
+                'capabilities': list(rec.capabilities),
+                'namespace': rec.namespace,
+                'protocol': f'{rec.protocol_major}.{rec.protocol_minor}.{rec.protocol_patch}',
+                'liveness': self._liveness.get(mid, 'UNKNOWN'),
+                'heartbeat_age_s': round((now - last) / 1e9, 2) if last else None,
+            })
+        payload = {'updated_unix': round(now / 1e9, 3), 'modules': mods}
+        try:
+            tmp = REGISTRY_EXPORT + '.tmp'
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(payload, f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, REGISTRY_EXPORT)
+        except OSError as exc:
+            self.get_logger().warning(f'registry export failed: {exc}')
 
     # ---- supervisor (lifecycle_manager) -----------------------------------
     def _begin_bringup(self) -> None:
