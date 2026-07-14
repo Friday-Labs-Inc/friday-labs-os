@@ -5,20 +5,21 @@ Three jobs, faithful to the interface contract and the Nav2 reference:
   1. module-registry      — serves RegisterModule, broadcasts ModulePresence.
   2. system-health-manager (lite) — subscribes each module's heartbeat and
      classifies OK / DEGRADED / DEAD against the locked deadlines.
-  3. safety-supervisor (lite) — a lifecycle_manager that brings the managed
-     module nodes up (configure -> activate) deterministically on startup.
+  3. safety-supervisor (lite) — a lifecycle_manager that keeps the managed
+     module nodes up: a reconcile loop reads each node's state and walks
+     anything unconfigured/inactive toward active (boards arrive on their
+     own clock — agent connect, watchdog restarts, power cycles).
 
 Real fault recovery, authority-lease, and full health live in later phases.
 """
 
-import collections
 import json
 import os
 
 import rclpy
 from lifecycle_msgs.msg import State as LCState
 from lifecycle_msgs.msg import Transition
-from lifecycle_msgs.srv import ChangeState
+from lifecycle_msgs.srv import ChangeState, GetState
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
@@ -62,6 +63,7 @@ class CoreHub(Node):
         super().__init__('core_hub')
         self.declare_parameter('managed_nodes', [''])
         self.declare_parameter('autostart_delay_s', 3.0)
+        self.declare_parameter('reconcile_period_s', 10.0)
         self.declare_parameter('authority_holder', 'MARK1-CORE-001')
 
         self._cb_group = ReentrantCallbackGroup()
@@ -111,8 +113,11 @@ class CoreHub(Node):
         self.create_timer(0.05, self._publish_safety_pulse)   # 20 Hz owning-node pulse (always)
         self._observe_timer = self.create_timer(OBSERVE_WINDOW_S, self._end_observe_window)
 
-        self._change_clients = {}     # node_name -> Client
-        self._steps = collections.deque()
+        self._change_clients = {}     # node_name -> ChangeState Client
+        self._state_clients = {}      # node_name -> GetState Client
+        self._inflight = set()        # node_names mid get_state/transition
+        self._managed = []
+        self._reconcile_timer = None
         delay = self.get_parameter('autostart_delay_s').value
         self._autostart_timer = self.create_timer(float(delay), self._begin_bringup)
 
@@ -336,59 +341,99 @@ class CoreHub(Node):
             self.get_logger().warning(f'registry export failed: {exc}')
 
     # ---- supervisor (lifecycle_manager) -----------------------------------
+    # A reconcile loop, not a one-shot: real module boards appear on their own
+    # clock (agent connect, watchdog restart, power cycle), so every
+    # reconcile_period_s each managed node's state is read and anything sitting
+    # unconfigured/inactive is walked toward active. Idempotent -- an already-
+    # active node is left alone; a board that restarts mid-mission is re-woken
+    # on the next tick.
     def _begin_bringup(self) -> None:
         self._autostart_timer.cancel()
         if self._rejoined:
             self.get_logger().info(
                 'rejoin: managed nodes already running; supervisor stays hands-off')
             return
-        managed = [n for n in self.get_parameter('managed_nodes').value if n]
+        managed = [n.strip('/') for n in self.get_parameter('managed_nodes').value if n]
         if not managed:
             self.get_logger().info('no managed_nodes configured; supervisor idle')
             return
-        self.get_logger().info(f'supervisor bringing up: {managed}')
-        for node_name in managed:
-            self._steps.append((node_name, Transition.TRANSITION_CONFIGURE))
-            self._steps.append((node_name, Transition.TRANSITION_ACTIVATE))
-        self._next_step()
+        self._managed = managed
+        period = float(self.get_parameter('reconcile_period_s').value)
+        self.get_logger().info(
+            f'supervisor: reconciling {managed} every {period:.0f}s')
+        self._reconcile_timer = self.create_timer(
+            period, self._reconcile, callback_group=self._cb_group)
+        self._reconcile()
 
-    def _next_step(self) -> None:
-        if not self._steps:
-            self.get_logger().info('supervisor: managed nodes ACTIVE — bring-up complete')
+    def _reconcile(self) -> None:
+        for node_name in self._managed:
+            if node_name in self._inflight:
+                continue
+            client = self._state_clients.get(node_name)
+            if client is None:
+                client = self.create_client(
+                    GetState, f'/{node_name}/get_state',
+                    callback_group=self._cb_group)
+                self._state_clients[node_name] = client
+            if not client.service_is_ready():
+                continue          # not on the graph yet -- try again next tick
+            self._inflight.add(node_name)
+            future = client.call_async(GetState.Request())
+            future.add_done_callback(lambda f, n=node_name: self._on_state(f, n))
+
+    def _on_state(self, future, node_name) -> None:
+        try:
+            state = future.result().current_state.id
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().warning(
+                f'supervisor: {node_name} get_state failed: {exc}')
+            self._inflight.discard(node_name)
             return
-        node_name, transition_id = self._steps.popleft()
+        transition_id = {
+            LCState.PRIMARY_STATE_UNCONFIGURED: Transition.TRANSITION_CONFIGURE,
+            LCState.PRIMARY_STATE_INACTIVE: Transition.TRANSITION_ACTIVATE,
+        }.get(state)
+        if transition_id is None:  # active or mid-transition: nothing to do
+            self._inflight.discard(node_name)
+            return
+        self._change(node_name, transition_id)
+
+    def _change(self, node_name, transition_id) -> None:
         client = self._change_clients.get(node_name)
         if client is None:
             client = self.create_client(
                 ChangeState, f'/{node_name}/change_state',
                 callback_group=self._cb_group)
             self._change_clients[node_name] = client
-        if not client.wait_for_service(timeout_sec=5.0):
-            self.get_logger().error(
-                f'supervisor: /{node_name}/change_state unavailable; skipping')
-            self._next_step()
+        if not client.service_is_ready():
+            self._inflight.discard(node_name)
             return
-        req = ChangeState.Request()
-        req.transition = Transition(id=transition_id)
         name = self._transition_name(transition_id)
         self.get_logger().info(f'supervisor: {node_name} -> {name}')
+        req = ChangeState.Request()
+        req.transition = Transition(id=transition_id)
         future = client.call_async(req)
         future.add_done_callback(
-            lambda f, n=node_name, t=name: self._on_step_done(f, n, t))
+            lambda f, n=node_name, t=transition_id: self._on_change_done(f, n, t))
 
-    def _on_step_done(self, future, node_name, transition_name) -> None:
+    def _on_change_done(self, future, node_name, transition_id) -> None:
+        name = self._transition_name(transition_id)
         try:
             ok = future.result().success
         except Exception as exc:  # noqa: BLE001
             self.get_logger().error(
-                f'supervisor: {node_name} {transition_name} call failed: {exc}')
+                f'supervisor: {node_name} {name} call failed: {exc}')
             ok = False
-        if ok:
-            self.get_logger().info(f'supervisor: {node_name} {transition_name} OK')
-        else:
-            self.get_logger().error(
-                f'supervisor: {node_name} {transition_name} FAILED')
-        self._next_step()
+        if not ok:
+            self.get_logger().error(f'supervisor: {node_name} {name} FAILED')
+            self._inflight.discard(node_name)
+            return
+        self.get_logger().info(f'supervisor: {node_name} {name} OK')
+        if transition_id == Transition.TRANSITION_CONFIGURE:
+            self._change(node_name, Transition.TRANSITION_ACTIVATE)
+            return
+        self._inflight.discard(node_name)
+        self.get_logger().info(f'supervisor: {node_name} ACTIVE')
 
     @staticmethod
     def _transition_name(transition_id: int) -> str:
