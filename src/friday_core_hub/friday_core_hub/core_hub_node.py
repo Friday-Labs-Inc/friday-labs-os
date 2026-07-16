@@ -40,6 +40,7 @@ REGISTRY_EXPORT = '/var/lib/friday/registry.json'  # inside THIS service's writa
 DEGRADED_AGE_S = 1.0      # ~3 missed 200 ms heartbeats / 500 ms deadlines
 DEAD_AGE_S = 1.5          # liveliness lease + margin
 HEALTH_FAULT_FRESH_S = 2.5  # only honor a FAULT verdict while health is still arriving
+INFLIGHT_TIMEOUT_S = 30.0   # a change_state/get_state left unanswered this long is abandoned
 LIVENESS_OK = 'OK'
 LIVENESS_DEGRADED = 'DEGRADED'
 LIVENESS_DEAD = 'DEAD'
@@ -121,7 +122,7 @@ class CoreHub(Node):
 
         self._change_clients = {}     # node_name -> ChangeState Client
         self._state_clients = {}      # node_name -> GetState Client
-        self._inflight = set()        # node_names mid get_state/transition
+        self._inflight = {}           # node_name -> abandon-after timestamp (ns)
         self._managed = []
         self._reconcile_timer = None
         delay = self.get_parameter('autostart_delay_s').value
@@ -403,10 +404,24 @@ class CoreHub(Node):
             period, self._reconcile, callback_group=self._cb_group)
         self._reconcile()
 
+    def _mark_inflight(self, node_name) -> None:
+        self._inflight[node_name] = (self.get_clock().now().nanoseconds
+                                     + int(INFLIGHT_TIMEOUT_S * 1e9))
+
     def _reconcile(self) -> None:
+        now = self.get_clock().now().nanoseconds
         for node_name in self._managed:
-            if node_name in self._inflight:
-                continue
+            deadline = self._inflight.get(node_name)
+            if deadline is not None:
+                if now < deadline:
+                    continue
+                # A raising handler on the far side sends NO response, so the
+                # pending future never resolves; without this expiry one lost
+                # call would block reconciling that node forever (seen live).
+                self.get_logger().warning(
+                    f'supervisor: {node_name} call unanswered for '
+                    f'{INFLIGHT_TIMEOUT_S:.0f}s -- abandoning, will retry')
+                self._inflight.pop(node_name, None)
             client = self._state_clients.get(node_name)
             if client is None:
                 client = self.create_client(
@@ -415,7 +430,7 @@ class CoreHub(Node):
                 self._state_clients[node_name] = client
             if not client.service_is_ready():
                 continue          # not on the graph yet -- try again next tick
-            self._inflight.add(node_name)
+            self._mark_inflight(node_name)
             future = client.call_async(GetState.Request())
             future.add_done_callback(lambda f, n=node_name: self._on_state(f, n))
 
@@ -425,7 +440,7 @@ class CoreHub(Node):
         except Exception as exc:  # noqa: BLE001
             self.get_logger().warning(
                 f'supervisor: {node_name} get_state failed: {exc}')
-            self._inflight.discard(node_name)
+            self._inflight.pop(node_name, None)
             return
         if state == LCState.PRIMARY_STATE_ACTIVE:
             # Active, yet its liveness is DEAD/FAULT: a latched watchdog fault
@@ -441,14 +456,14 @@ class CoreHub(Node):
                     f'(deactivate->activate)')
                 self._change(node_name, Transition.TRANSITION_DEACTIVATE)
             else:
-                self._inflight.discard(node_name)
+                self._inflight.pop(node_name, None)
             return
         transition_id = {
             LCState.PRIMARY_STATE_UNCONFIGURED: Transition.TRANSITION_CONFIGURE,
             LCState.PRIMARY_STATE_INACTIVE: Transition.TRANSITION_ACTIVATE,
         }.get(state)
         if transition_id is None:  # mid-transition: nothing to do
-            self._inflight.discard(node_name)
+            self._inflight.pop(node_name, None)
             return
         self._change(node_name, transition_id)
 
@@ -460,7 +475,7 @@ class CoreHub(Node):
                 callback_group=self._cb_group)
             self._change_clients[node_name] = client
         if not client.service_is_ready():
-            self._inflight.discard(node_name)
+            self._inflight.pop(node_name, None)
             return
         name = self._transition_name(transition_id)
         self.get_logger().info(f'supervisor: {node_name} -> {name}')
@@ -480,14 +495,14 @@ class CoreHub(Node):
             ok = False
         if not ok:
             self.get_logger().error(f'supervisor: {node_name} {name} FAILED')
-            self._inflight.discard(node_name)
+            self._inflight.pop(node_name, None)
             return
         self.get_logger().info(f'supervisor: {node_name} {name} OK')
         if transition_id in (Transition.TRANSITION_CONFIGURE,
                              Transition.TRANSITION_DEACTIVATE):
             self._change(node_name, Transition.TRANSITION_ACTIVATE)
             return
-        self._inflight.discard(node_name)
+        self._inflight.pop(node_name, None)
         self.get_logger().info(f'supervisor: {node_name} ACTIVE')
 
     @staticmethod
