@@ -96,10 +96,25 @@ def generate_launch_description() -> LaunchDescription:
         name='ekf_filter_node', output='screen',
         parameters=[os.path.join(pkg, 'config', 'ekf.yaml')])
 
+    # --- Phase 2 mapping: slam_toolbox (opt-in with slam:=true) ---
+    slam = Node(
+        package='slam_toolbox', executable='async_slam_toolbox_node',
+        name='slam_toolbox', output='screen',
+        parameters=[os.path.join(pkg, 'config', 'slam.yaml')],
+        condition=IfCondition(LaunchConfiguration('slam')))
+    slam_lifecycle = Node(
+        package='nav2_lifecycle_manager', executable='lifecycle_manager',
+        name='lifecycle_manager_slam', output='screen',
+        parameters=[{'use_sim_time': True, 'autostart': True,
+                     'node_names': ['slam_toolbox']}],
+        condition=IfCondition(LaunchConfiguration('slam')))
+
     return LaunchDescription([
+        DeclareLaunchArgument('slam', default_value='false',
+                              description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf',
                               description='world file in friday_description/worlds'),
         DeclareLaunchArgument('headless', default_value='true',
                               description='true = server only; false = open the Gazebo GUI'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls , wheel_odom, ekf,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls , wheel_odom, ekf, slam, slam_lifecycle,
     ])
