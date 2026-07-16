@@ -1,4 +1,4 @@
-image: mark1_first_map.pgm
+image: arena.pgm
 mode: trinary
 resolution: 0.050
 origin: [-4.024, -4.076, 0]
