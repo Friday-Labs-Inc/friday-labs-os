@@ -68,7 +68,9 @@ def generate_launch_description() -> LaunchDescription:
                output='screen',
                parameters=[{'robot_description': robot_description, 'use_sim_time': True}])
     bridge = Node(package='ros_gz_bridge', executable='parameter_bridge', output='screen',
-                  arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'])
+                  arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+                             '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+                             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
                  arguments=['-topic', 'robot_description', '-name', 'mark1', '-z', '0.12'])
 
