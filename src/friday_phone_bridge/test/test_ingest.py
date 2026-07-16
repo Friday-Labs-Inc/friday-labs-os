@@ -158,3 +158,34 @@ def test_health_never_reports_fault():
     # Advisory sensor: worst case is DEGRADED, never FAULT.
     overall, _ = ingest.health_from_ages(None, None, 3.0, 1.0)
     assert overall == ingest.HEALTH_DEGRADED
+
+
+# ---- HyperIMU CSV wire format (confirmed by live capture 2026-07-16) -------
+def test_csv_accel_gyro_only():
+    raw = b'-0.45,3.68,9.23,-0.13,-0.38,-0.17\r\n'
+    s = ingest.parse_imu_datagram(raw)
+    assert s is not None
+    assert (s.ax, s.ay, s.az) == (-0.45, 3.68, 9.23)
+    assert (s.gx, s.gy, s.gz) == (-0.13, -0.38, -0.17)
+
+
+def test_csv_many_sensors_with_index_map():
+    # real 24-field capture shape: accel at 0, gyro at 9 (mag/orientation between)
+    fields = ['-0.45', '3.68', '9.23', '-35.9', '-1.8', '-8.75',
+              '88.3', '-21.4', '-2.8', '-0.132', '-0.380', '-0.172'] + ['0.0'] * 12
+    raw = (','.join(fields) + '\r\n').encode()
+    s = ingest.parse_imu_datagram(raw, accel_i=0, gyro_i=9)
+    assert s is not None and s.gz == -0.172
+
+
+def test_csv_default_indices_reject_magnetometer_as_gyro():
+    # all-sensors stream with defaults: field 3 is the magnetometer (~36 "rad/s"
+    # would be absurd) -> the range gate rejects rather than publishing garbage
+    raw = b'-0.45,3.68,9.23,-35.9,-1.8,-8.75,88.3\r\n'
+    assert ingest.parse_imu_datagram(raw) is None
+
+
+def test_csv_rejects_garbage():
+    assert ingest.parse_imu_datagram(b'not,numbers,at,all,x,y\r\n') is None
+    assert ingest.parse_imu_datagram(b'1.0,2.0\r\n') is None            # too few
+    assert ingest.parse_imu_datagram(b'1,2,nan,4,5,6\r\n') is None      # non-finite

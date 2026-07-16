@@ -2,7 +2,9 @@
 
 Parses, validates, and gates the two streams the OnePlus phone sends:
 
-  * IMU: HyperIMU JSON datagrams over UDP (accelerometer + gyroscope, SI units)
+  * IMU: HyperIMU datagrams over UDP -- CSV (the app's actual wire format,
+    confirmed by live capture 2026-07-16: comma-separated floats, CRLF) or
+    JSON (older assumption, kept for compatibility). SI units.
   * GPS: gpsd TPV reports (newline-delimited JSON over gpsd's TCP socket)
 
 The phone is an untrusted advisory sensor, so everything here rejects rather
@@ -91,12 +93,46 @@ def _find_triplet(data: dict, substring: str):
     return None
 
 
-def parse_imu_datagram(raw: bytes):
+def _parse_csv(text: str, accel_i: int, gyro_i: int):
+    """HyperIMU CSV line -> (accel, gyro) triplets, or None.
+
+    The stream is the phone's TICKED sensors in list order, 3 floats each.
+    With only Accelerometer + Gyroscope ticked (the documented setup) the
+    defaults accel_i=0, gyro_i=3 are correct; other layouts remap via the
+    csv_accel_index / csv_gyro_index parameters.
+    """
+    parts = text.strip().split(',')
+    need = max(accel_i, gyro_i) + 3
+    if len(parts) < need:
+        return None
+    try:
+        vals = [float(p) for p in parts[:need]]
+    except ValueError:
+        return None
+    if not all(math.isfinite(v) for v in vals):
+        return None
+    return tuple(vals[accel_i:accel_i + 3]), tuple(vals[gyro_i:gyro_i + 3])
+
+
+def parse_imu_datagram(raw: bytes, accel_i: int = 0, gyro_i: int = 3):
     """bytes -> ImuSample, or None if the datagram fails any check."""
     try:
-        data = json.loads(raw.decode('utf-8'))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
         return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        csv = _parse_csv(text, accel_i, gyro_i)
+        if csv is None:
+            return None
+        accel, gyro = csv
+        if any(abs(a) > ACCEL_ABS_MAX for a in accel):
+            return None
+        if any(abs(g) > GYRO_ABS_MAX for g in gyro):
+            return None
+        return ImuSample(ax=accel[0], ay=accel[1], az=accel[2],
+                         gx=gyro[0], gy=gyro[1], gz=gyro[2])
     if not isinstance(data, dict):
         return None
     accel = _find_triplet(data, 'acc')

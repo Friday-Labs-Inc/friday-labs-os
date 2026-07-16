@@ -65,6 +65,8 @@ class PhoneBridge(ModuleAgent):
         self.declare_parameter('fix_timeout_s', 3.0)
         self.declare_parameter('imu_timeout_s', 1.0)
         self.declare_parameter('max_imu_msgs_per_s', 100)
+        self.declare_parameter('csv_accel_index', 0)   # HyperIMU CSV field maps
+        self.declare_parameter('csv_gyro_index', 3)    # (accel+gyro only ticked)
 
         self._fix_pub = None
         self._imu_pub = None
@@ -155,7 +157,10 @@ class PhoneBridge(ModuleAgent):
             if not allowed:
                 self._drop('imu_rate')
                 continue
-            sample = ingest.parse_imu_datagram(raw)
+            sample = ingest.parse_imu_datagram(
+                raw,
+                accel_i=int(self.get_parameter('csv_accel_index').value),
+                gyro_i=int(self.get_parameter('csv_gyro_index').value))
             if sample is None:
                 self._drop('imu_parse')
                 continue
