@@ -1,0 +1,33 @@
+# robot_localization EKF — Phase 1 "I know where I am".
+# Fuses wheel odometry (velocities only: dead-reckoned pose drifts, velocities
+# are honest) with the IMU (orientation + yaw rate). Owns the odom->base_link
+# TF per REP-105. two_d_mode: the rover lives on the ground plane; the rocker
+# bogie handles the bumps mechanically.
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    sensor_timeout: 0.5
+    two_d_mode: true
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    odom0: /odom
+    odom0_config: [false, false, false,     # x y z        (pose: ignore)
+                   false, false, false,     # r p yaw      (pose: ignore)
+                   true,  false, false,     # vx vy vz     (fuse vx)
+                   false, false, true,      # vr vp vyaw   (fuse vyaw)
+                   false, false, false]     # ax ay az
+    odom0_differential: false
+
+    imu0: /imu
+    imu0_config: [false, false, false,
+                  false, false, true,       # yaw (absolute, from gz IMU)
+                  false, false, false,
+                  false, false, true,       # yaw rate
+                  false, false, false]
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true

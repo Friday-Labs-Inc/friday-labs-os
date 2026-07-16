@@ -95,8 +95,17 @@ def generate_launch_description() -> LaunchDescription:
                 parameters=[{'wheel_cmd_topic': WHEEL_CMD, 'steer_cmd_topic': STEER_CMD,
                              'safe_stop_timeout_s': 0.6}])
 
+    # --- Phase 1 localization: wheel odometry + EKF (odom->base_link TF) ---
+    wheel_odom = Node(
+        package='friday_locomotion', executable='wheel_odometry', output='screen',
+        parameters=[{'use_sim_time': True}])
+    ekf = Node(
+        package='robot_localization', executable='ekf_node',
+        name='ekf_filter_node', output='screen',
+        parameters=[os.path.join(pkg, 'config', 'ekf.yaml')])
+
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
         DeclareLaunchArgument('headless', default_value='true'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf,
     ])

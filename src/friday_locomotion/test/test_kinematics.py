@@ -37,3 +37,30 @@ def test_steer_clamped_to_limit():
     # a near-zero-radius (tight) request must clamp, never exceed the joint limit
     wv, sa = k.drive_and_steer(0.05, 3.0)
     assert all(abs(a) <= k.STEER_LIMIT + 1e-9 for a in sa)
+
+
+# ---- inverse kinematics (odometry) -----------------------------------------
+def test_inverse_straight_line():
+    wheels, _ = k.drive_and_steer(0.5, 0.0)
+    v, w = k.body_twist_from_wheels(wheels)
+    assert abs(v - 0.5) < 1e-9 and abs(w) < 1e-9
+
+
+def test_inverse_roundtrip_turn():
+    # forward then inverse must recover the commanded twist exactly for the
+    # fixed middle pair (their equations are linear and steer-free)
+    for v_cmd, w_cmd in [(0.4, 0.3), (0.2, -0.8), (0.0, 0.5), (-0.3, 0.2)]:
+        wheels, _ = k.drive_and_steer(v_cmd, w_cmd)
+        v, w = k.body_twist_from_wheels(wheels)
+        assert abs(v - v_cmd) < 1e-6, (v_cmd, w_cmd)
+        assert abs(w - w_cmd) < 1e-6, (v_cmd, w_cmd)
+
+
+def test_integrate_pose_straight_and_arc():
+    import math
+    x, y, yaw = k.integrate_pose(0, 0, 0, 1.0, 0.0, 2.0)
+    assert (x, y, yaw) == (2.0, 0.0, 0.0)
+    # quarter circle left at r=1: v=w -> ends at (1,1) facing +y
+    x, y, yaw = k.integrate_pose(0, 0, 0, 1.0, 1.0, math.pi / 2)
+    assert abs(x - 1.0) < 1e-9 and abs(y - 1.0) < 1e-9
+    assert abs(yaw - math.pi / 2) < 1e-9
