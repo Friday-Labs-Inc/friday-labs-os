@@ -25,7 +25,8 @@ from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
-from friday_msgs.msg import AuthorityLease, Heartbeat, Mark1Header, ModulePresence
+from friday_msgs.msg import (AuthorityLease, Heartbeat, HealthStatus, Mark1Header,
+                             ModulePresence)
 from friday_msgs.srv import RegisterModule, RequestAuthority
 from friday_module_agent import authority, protocol, qos
 
@@ -41,6 +42,7 @@ DEAD_AGE_S = 1.5          # liveliness lease + margin
 LIVENESS_OK = 'OK'
 LIVENESS_DEGRADED = 'DEGRADED'
 LIVENESS_DEAD = 'DEAD'
+LIVENESS_FAULT = 'FAULT'   # module itself reports OVERALL_FAULT (e.g. latched watchdog)
 
 # Authority-lease state machine (Authority Lease Protocol — "Authority Return").
 AUTH_OBSERVING = 'OBSERVING'     # boot: listen for an existing holder before taking the lease
@@ -69,6 +71,8 @@ class CoreHub(Node):
         self._cb_group = ReentrantCallbackGroup()
         self._registry = ModuleRegistry()
         self._hb_subs = {}            # module_id -> Subscription
+        self._health_subs = {}        # module_id -> Subscription
+        self._health_overall = {}     # module_id -> HealthStatus.OVERALL_*
         self._last_seen_ns = {}       # module_id -> int
         self._liveness = {}           # module_id -> LIVENESS_*
 
@@ -151,6 +155,7 @@ class CoreHub(Node):
                 f'-> {result.assigned_namespace} '
                 f'caps={list(request.capabilities)}')
             self._subscribe_heartbeat(h.module_id, result.assigned_namespace)
+            self._subscribe_health(h.module_id, result.assigned_namespace)
             self._publish_presence(h.module_id, True)
             self._export_registry()
         else:
@@ -282,6 +287,28 @@ class CoreHub(Node):
         self._liveness[module_id] = LIVENESS_OK
         self.get_logger().info(f'monitoring heartbeat on {topic}')
 
+    def _subscribe_health(self, module_id: str, namespace: str) -> None:
+        # Liveness (heartbeat age) says "is it talking"; health says "is it
+        # well". A module can keep an intact TX wire feeding us heartbeats
+        # while its watchdog has latched a fault -- honor the module's own
+        # FAULT verdict instead of calling it OK (found by a live TX-cut test).
+        if module_id in self._health_subs:
+            return
+        topic = f'{namespace}/health'
+        self._health_subs[module_id] = self.create_subscription(
+            HealthStatus, topic,
+            lambda msg, mid=module_id: self._on_health(mid, msg),
+            qos.state_default(), callback_group=self._cb_group)
+        self.get_logger().info(f'monitoring health on {topic}')
+
+    def _on_health(self, module_id: str, msg: HealthStatus) -> None:
+        prev = self._health_overall.get(module_id)
+        self._health_overall[module_id] = msg.overall
+        if msg.overall == HealthStatus.OVERALL_FAULT and prev != msg.overall:
+            self.get_logger().warning(
+                f'{module_id} reports OVERALL_FAULT'
+                f'{" -- " + msg.detail if msg.detail else ""}')
+
     def _on_heartbeat(self, msg: Heartbeat) -> None:
         self._last_seen_ns[msg.header.module_id] = self.get_clock().now().nanoseconds
 
@@ -298,6 +325,8 @@ class CoreHub(Node):
                 new = LIVENESS_DEGRADED
             else:
                 new = LIVENESS_OK
+            if self._health_overall.get(module_id) == HealthStatus.OVERALL_FAULT:
+                new = LIVENESS_FAULT   # the module's own verdict outranks a fresh heartbeat
             if new != self._liveness.get(module_id):
                 self._liveness[module_id] = new
                 # rclpy caches severity per call site -- logging .info and
