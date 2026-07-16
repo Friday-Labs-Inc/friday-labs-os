@@ -33,6 +33,7 @@ from friday_module_agent import authority, protocol, qos
 from friday_core_hub.decisions import (LIVENESS_DEAD, LIVENESS_FAULT,
                                         LIVENESS_OK, classify_liveness,
                                         supervisor_action)
+from friday_core_hub import persistence
 from friday_core_hub.registry import ModuleRegistry
 
 PRESENCE_TOPIC = '/mark1/system/presence'
@@ -83,7 +84,11 @@ class CoreHub(Node):
             callback_group=self._cb_group)
 
         self.create_timer(0.5, self._check_liveness)
-        self._export_registry()  # honest (possibly empty) snapshot at boot -- never serve a stale file
+        # Restore the previous roster (DEAD until heard -- real heartbeats
+        # promote within seconds), then export an honest snapshot: a Core-Hub
+        # restart no longer serves an empty fleet to the FCC.
+        self._restore_registry()
+        self._export_registry()
 
         # --- safety-supervisor: authority lease + safety pulse (Phase 4) ---
         # Authority is *earned through a boot observe-window*, not assumed: a clean
@@ -340,6 +345,30 @@ class CoreHub(Node):
                 if new == LIVENESS_DEAD:
                     self._publish_presence(module_id, False)
                 self._export_registry()
+
+    def _restore_registry(self) -> None:
+        try:
+            with open(REGISTRY_EXPORT, encoding='utf-8') as f:
+                entries = persistence.parse_snapshot(f.read())
+        except OSError:
+            return                          # first boot: no snapshot yet
+        restored = 0
+        for entry in entries:
+            result = self._registry.register(**entry)
+            if not result.accepted:
+                self.get_logger().warning(
+                    f"snapshot module {entry['module_id']} not restored: "
+                    f"{result.reason}")
+                continue
+            self._subscribe_heartbeat(entry['module_id'], result.assigned_namespace)
+            self._subscribe_health(entry['module_id'], result.assigned_namespace)
+            # DEAD until heard: never fake a liveness we have not observed.
+            self._last_seen_ns[entry['module_id']] = 0
+            self._liveness[entry['module_id']] = LIVENESS_DEAD
+            restored += 1
+        if restored:
+            self.get_logger().info(
+                f'restored {restored} module(s) from snapshot -- DEAD until heard')
 
     def _export_registry(self) -> None:
         '''Atomic JSON snapshot of the registry + liveness for the FCC.'''
