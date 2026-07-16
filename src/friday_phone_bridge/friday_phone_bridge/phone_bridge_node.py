@@ -24,10 +24,10 @@ import select
 import socket
 
 import rclpy
-from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
 
 from friday_module_agent import qos
+from friday_module_agent.runner import spin_agent
 from friday_module_agent.module_agent import ModuleAgent
 
 from friday_phone_bridge import ingest
@@ -308,16 +308,7 @@ class PhoneBridge(ModuleAgent):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PhoneBridge()
-    executor = MultiThreadedExecutor()
-    executor.add_node(node)
-    try:
-        executor.spin()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_agent(PhoneBridge())
 
 
 if __name__ == '__main__':

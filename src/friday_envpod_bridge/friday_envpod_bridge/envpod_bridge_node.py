@@ -25,12 +25,12 @@ Contract notes (mirror the phone pod, PR #6):
 import socket
 
 import rclpy
-from rclpy.executors import MultiThreadedExecutor
 from sensor_msgs.msg import (FluidPressure, Illuminance, RelativeHumidity,
                              Temperature)
 from std_msgs.msg import Bool
 
 from friday_module_agent import qos
+from friday_module_agent.runner import spin_agent
 from friday_module_agent.module_agent import ModuleAgent
 
 from friday_envpod_bridge import ingest
@@ -224,16 +224,7 @@ class EnvpodBridge(ModuleAgent):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = EnvpodBridge()
-    executor = MultiThreadedExecutor()
-    executor.add_node(node)
-    try:
-        executor.spin()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_agent(EnvpodBridge())
 
 
 if __name__ == '__main__':
