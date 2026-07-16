@@ -22,6 +22,7 @@ setup(
         'console_scripts': [
             'locomotion_agent = friday_locomotion.locomotion_agent_node:main',
             'wheel_odometry = friday_locomotion.wheel_odometry_node:main',
+            'nav_motion_adapter = friday_locomotion.nav_motion_adapter:main',
         ],
     },
 )
