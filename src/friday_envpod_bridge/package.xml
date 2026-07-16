@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>friday_envpod_bridge</name>
+  <version>0.1.0</version>
+  <description>
+    Environmental sensor pod agent: bridges a Pi Zero W + DockerPi SensorHub
+    HAT (temp, humidity, pressure, light, human presence over I2C, streamed as
+    UDP JSON) into /mark1/envpod/*. Advisory only -- outside the safety path.
+    Module MARK1-ENVPOD-001.
+  </description>
+  <maintainer email="iamfriday86@gmail.com">Friday Labs Inc.</maintainer>
+  <license>Proprietary</license>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>friday_msgs</depend>
+  <depend>friday_module_agent</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
