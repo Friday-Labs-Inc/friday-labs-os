@@ -1,0 +1,34 @@
+# Mark 1 Stage 1 — corner-steer control.
+#   wheel_velocity_controller : drives all 6 wheels (Float64MultiArray, rad/s)
+#   steer_position_controller : steers the 4 corner wheels (Float64MultiArray, rad)
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    use_sim_time: true
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    wheel_velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
+    steer_position_controller:
+      type: position_controllers/JointGroupPositionController
+
+wheel_velocity_controller:
+  ros__parameters:
+    joints:
+      - wheel_left_front_joint
+      - wheel_left_mid_joint
+      - wheel_left_rear_joint
+      - wheel_right_front_joint
+      - wheel_right_mid_joint
+      - wheel_right_rear_joint
+
+steer_position_controller:
+  ros__parameters:
+    joints:
+      - left_front_steer_joint
+      - left_rear_steer_joint
+      - right_front_steer_joint
+      - right_rear_steer_joint

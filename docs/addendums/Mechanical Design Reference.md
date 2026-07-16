@@ -1,14 +1,24 @@
 # Mechanical Design Reference
 
 > Locks the NASA Perseverance rover as the mechanical-anatomy reference for [Mark 1](../architecture/Mark 1 Compute Architecture.md). Establishes which Perseverance features transfer to the Mark 1 prototype and which do not. Closes the chassis-design ambiguity in the dossier.
-> **Version:** Draft 1.1 · **Purpose:** Lock the mechanical reference before chassis procurement or CAD work.
-> **1.1 (2026-06-19):** scale re-anchored on the **743 mm body length** after measuring the GLB mesh in Blender — wheel is now **140 mm** (was 130 mm), scale **0.2668×** (was 0.2476×). The 130 mm / 0.2476× figures assumed Perseverance is 3.0 m long; the mesh measures 2.785 m.
+> **Version:** Draft 1.2 · **Purpose:** Lock the mechanical reference before chassis procurement or CAD work.
+> **1.2 (2026-06-30) — WHEEL REVERTED TO 130 mm.** The creator of the source rover
+> (HowToMechatronics) confirmed the model was scaled to a **130 mm wheel diameter** and
+> built around that wheel + the chosen servos/DC motors, with **no proportion calculations**.
+> So the 1.1 "re-anchor to 743 mm / 140 mm / 0.2668×" (a Blender GLB re-measurement) is
+> **dropped as over-derived**. The **dimensional source of truth is now the in-repo DIY CAD**
+> (`../../Mechanics/reference-models/howtomechatronics-replica/` — STEP + 105 STLs; the parts
+> being printed), with exact tube/profile dims to follow from the creator. Wheel = **130 mm**
+> (the printed wheel STL measures ~133.6 mm outer incl. tread → use that as the rolling
+> diameter for odometry); scale ≈ **0.247×**. Body/wheelbase/track below are the 140 mm-era
+> figures rescaled ×130/140 — **confirm against the DIY CAD**, don't treat as exact.
+> **1.1 (2026-06-19) — SUPERSEDED by 1.2.**
 
 ## Decision
 
 The Mark 1 rover's mechanical anatomy is modeled on the **NASA Perseverance rover**, scaled to the [60-90 cm bench prototype envelope](Power Budget.md). This is not a mission-feature parity claim — Mark 1 is not a Mars science rover — it is a *chassis kinematics and proportions* reference. The Perseverance design has decades of JPL engineering behind it and an extensive open-source educational lineage.
 
-**Locked build target:** true Perseverance proportions at **0.2668× scale** (anchored on the locked **743 mm body length**; wheel = **140 mm**) — body **~743 × 722 × 596 mm**, within the [60-90 cm envelope](Power Budget.md). The JPL OSR is the rocker-bogie **mechanism donor**, but its compact native proportions are **not** adopted: holding true Perseverance proportions means a **partly-custom frame**, re-proportioned in CAD, rather than the stock OSR-kit dimensions. The scaled Perseverance mesh is therefore the build's dimensional reference (see [Reference-Model Scaling](#reference-model-scaling)).
+**Locked build target:** the **HowToMechatronics Perseverance replica at its native size — 130 mm wheel** (creator-confirmed; scale ≈ **0.247×** of the real 526 mm wheel). Body envelope ≈ **690 × 670 × 553 mm** (the 140 mm-era 743 × 722 × 596 rescaled ×130/140 — **confirm off the in-repo DIY CAD**), within the [60-90 cm envelope](Power Budget.md). The JPL OSR is the rocker-bogie **mechanism donor**, but its compact native proportions are **not** adopted: holding true Perseverance proportions means a **partly-custom frame**, re-proportioned in CAD, rather than the stock OSR-kit dimensions. The scaled Perseverance mesh is therefore the build's dimensional reference (see [Reference-Model Scaling](#reference-model-scaling)).
 
 ## What Transfers from Perseverance
 
@@ -67,28 +77,33 @@ A NASA Perseverance 3D mesh is committed at `Mechanics/reference-models/persever
 - Measured Perseverance wheel-span on the GLB mesh: **2.785 m** (not the rounded 3.0 m once assumed).
 - Uniform scale factor: **743 mm / 2785 mm = 0.2668** (≈ 1:3.75, ~27%), anchored on body length — yields a **140 mm wheel** (0.526 m × 0.2668).
 
-| Dimension | Real Perseverance (GLB mesh) | Mark 1 at 0.2668× |
+> ⚠️ **Superseded by v1.2 (2026-06-30):** the build target is the **130 mm wheel** of the
+> HowToMechatronics replica (creator-confirmed, no calculations). The 0.2668× / 743 mm / 140 mm
+> derivation in this section is kept as history but is **NOT** the build size. Source of truth =
+> the in-repo DIY CAD (`../../Mechanics/reference-models/howtomechatronics-replica/`).
+
+| Dimension | Real Perseverance (GLB mesh) | Mark 1 at ≈0.247× (130 mm wheel) |
 |---|---|---|
-| Wheel diameter | 526 mm | **140 mm** |
-| Body length (wheel-span) | 2.785 m | **743 mm** (anchor) |
-| Width (track, outer) | 2.705 m | ~722 mm |
-| Height (mast top) | 2.232 m | ~596 mm |
+| Wheel diameter | 526 mm | **130 mm** (creator-confirmed; ~133.6 mm printed incl. tread) |
+| Body length (wheel-span) | 2.785 m | ≈ **690 mm** (confirm off DIY CAD) |
+| Width (track, outer) | 2.705 m | ≈ 670 mm (confirm off DIY CAD) |
+| Height (mast top) | 2.232 m | ≈ 553 mm (confirm off DIY CAD) |
 
 The ~743 × 722 mm footprint sits inside the [60-90 cm envelope](Power Budget.md) — confirming the 140 mm wheel and the prototype size are geometrically consistent.
 
 **Applying it (resolved 2026-06-19).** The mesh was *measured* in Blender, not assumed: wheel Ø = 0.526 m (matches NASA's 526 mm — the mesh is dimensionally faithful) and wheel-span = 2.785 m. Anchoring on the **743 mm body-length** target gives uniform scale **0.2668×** (X = Y = Z), yielding a **140 mm wheel**.
 
-This is why the wheel is **140 mm, not the originally-estimated 130 mm**: the 130 mm figure assumed Perseverance is exactly 3.0 m long, but the faithful GLB mesh measures 2.785 m. The build holds the 743 mm length (inside the 60-90 cm envelope); the wheel follows. Working file: `Mechanics/reference-models/perseverance/converted/perseverance_rolling_chassis.blend` (deck + rocker-bogie + 6 wheels; payload stripped).
+**(Superseded — see v1.2 at the top.)** This paragraph argued for a *140 mm* wheel by anchoring on a 743 mm body from the GLB mesh. That is **dropped**: the creator confirms the source model is a **130 mm wheel** built around the wheel + servos/motors with **no proportion calculations**, so the in-repo DIY CAD — not a GLB-mesh re-scaling — is the size of record. Working file: `Mechanics/reference-models/perseverance/converted/perseverance_rolling_chassis.blend` (deck + rocker-bogie + 6 wheels; payload stripped).
 
 **Derive the remaining build dimensions from the scaled mesh.** Because Mark 1 holds true proportions, there is no separate OSR dimension to reconcile against — the scaled model *is* the spec. Measured off the working file at 0.2668× (140 mm wheel):
 
 | Build dimension | Value | Status |
 |---|---|---|
-| Overall envelope L × W × H | 743 × 722 × ~596 mm | measured (H w/ mast = computed) |
-| Deck plate (WEB body) L × W × H | 555 × 413 × 220 mm | measured |
-| Wheel diameter | 140 mm | locked |
-| Wheelbase (front↔rear hub) | **603 mm** | **measured** — hubs at x = ±301.5; middle axle +14.7 mm fwd |
-| Track (hub-center) | **567 mm** front/rear · **632 mm** middle | **measured** — corners y = ±283.5, middle y = ±316.0 (bogie wheels sit wider) |
+| Overall envelope L × W × H | ≈ 690 × 670 × ~553 mm | 140mm-era 743×722×596 rescaled ×130/140 — confirm off DIY CAD |
+| Deck plate (WEB body) L × W × H | ≈ 515 × 384 × 204 mm | 140mm-era 555×413×220 rescaled — confirm off DIY CAD |
+| Wheel diameter | 130 mm | **creator-confirmed** (~133.6 mm printed incl. tread) |
+| Wheelbase (front↔rear hub) | ≈ **560 mm** | 140mm-era 603 mm rescaled ×130/140 — confirm off DIY CAD |
+| Track (hub-center) | ≈ **526 mm** front/rear · **587 mm** middle | 140mm-era 567/632 rescaled — confirm off DIY CAD |
 | Hub centers (datum: WB-center @ ground) | front (±301.5, ±283.5, 70) · mid (+14.7, ±316.0, 70) · rear (∓301.5, ±283.5, 70) | **measured** |
 | Ground clearance (deck underside) | ~180 mm | measured (suspension low point ~58 mm) |
 | Rocker↔body / rocker↔bogie pivots | ≈ (−55, ±170, 295) / (−66, ±200, 244) | **estimated** — decorative arms are one fused blob; confirm vs real geometry before bearings |

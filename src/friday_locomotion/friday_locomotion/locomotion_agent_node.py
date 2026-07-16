@@ -23,6 +23,7 @@ import math
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.executors import MultiThreadedExecutor
+from std_msgs.msg import Float64MultiArray
 
 from friday_msgs.msg import (
     AuthorityLease,
@@ -35,11 +36,15 @@ from friday_module_agent import authority, qos
 from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
-from friday_locomotion import safety
+from friday_locomotion import kinematics, safety
 
 CONTROL_PERIOD_S = 0.05         # 20 Hz odometry
 SAFE_CHECK_PERIOD_S = 0.025     # 40 Hz safety watchdog
 SAFE_STOP_TIMEOUT_S = 0.1       # 100 ms safety-pulse loss -> safe-stop
+WATCHDOG_GRACE_S = 1.0          # arm the watchdog ~1 s after activate so the
+                                # best-effort safety-pulse subscription can connect
+                                # first (avoids a startup false-trip; rover isn't
+                                # moving yet). Runtime safe-stop latency is unchanged.
 
 CMD_TOPIC = '/mark1/locomotion/cmd_motion'
 ODOM_TOPIC = '/mark1/locomotion/odometry'
@@ -76,9 +81,21 @@ class LocomotionAgent(ModuleAgent):
         self._epoch = 0
         self.declare_parameter('nonce_store', '')
         self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
+        # sim drive-out: if both topics are set, the authority-gated, safe-stop-gated
+        # (v, w) is converted (kinematics.drive_and_steer) to 6 wheel velocities + 4
+        # corner steer angles and published to the gz_ros2_control command topics —
+        # the real OS driving the corner-steer Gazebo rover. Empty -> pure node-sim.
+        self.declare_parameter('wheel_cmd_topic', '')
+        self.declare_parameter('steer_cmd_topic', '')
+        # safe-stop pulse-loss timeout. 0.1 s is the HARDWARE (HIL firmware-watchdog
+        # over dedicated serial) spec; the sim loosens it via this param because the
+        # DDS pulse on a shared, physics-loaded CPU jitters (not a real safety event).
+        self.declare_parameter('safe_stop_timeout_s', SAFE_STOP_TIMEOUT_S)
+        self._safe_stop_timeout = float(self.get_parameter('safe_stop_timeout_s').value)
         # safety state
         self._safe_state = False
         self._last_safety_pulse_ns = 0
+        self._activate_ns = 0
         # handles
         self._odom_pub = None
         self._fault_pub = None
@@ -86,6 +103,8 @@ class LocomotionAgent(ModuleAgent):
         self._authority_sub = None
         self._pulse_sub = None
         self._estop_sub = None
+        self._wheel_cmd_pub = None
+        self._steer_cmd_pub = None
         self._motion_timer = None
         self._watchdog_timer = None
 
@@ -103,6 +122,15 @@ class LocomotionAgent(ModuleAgent):
             Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream())
         self._estop_sub = self.create_subscription(
             EmergencyStop, ESTOP_TOPIC, self._on_emergency_stop, qos.critical_reliable())
+        wheel_topic = self.get_parameter('wheel_cmd_topic').value
+        steer_topic = self.get_parameter('steer_cmd_topic').value
+        if wheel_topic and steer_topic:
+            self._wheel_cmd_pub = self.create_lifecycle_publisher(
+                Float64MultiArray, wheel_topic, qos.state_default())
+            self._steer_cmd_pub = self.create_lifecycle_publisher(
+                Float64MultiArray, steer_topic, qos.state_default())
+            self.get_logger().info(
+                f'sim corner-steer drive-out -> {wheel_topic} + {steer_topic}')
 
     def activate_hardware(self) -> None:
         self._x = self._y = self._theta = 0.0
@@ -111,6 +139,7 @@ class LocomotionAgent(ModuleAgent):
         now_ns = self.get_clock().now().nanoseconds
         self._last_ns = now_ns
         self._last_safety_pulse_ns = now_ns
+        self._activate_ns = now_ns
         self._motion_timer = self.create_timer(CONTROL_PERIOD_S, self._step)
         self._watchdog_timer = self.create_timer(SAFE_CHECK_PERIOD_S, self._check_safety)
 
@@ -181,8 +210,10 @@ class LocomotionAgent(ModuleAgent):
         if self._safe_state:
             return
         now_ns = self.get_clock().now().nanoseconds
+        if (now_ns - self._activate_ns) / 1e9 < WATCHDOG_GRACE_S:
+            return                      # startup grace: subscriptions still establishing
         pulse_age = (now_ns - self._last_safety_pulse_ns) / 1e9
-        if pulse_age > SAFE_STOP_TIMEOUT_S:
+        if pulse_age > self._safe_stop_timeout:
             self._trip_safe_stop(
                 f'safety pulse lost ({pulse_age * 1e3:.0f} ms)', pulse_age * 1e3)
         elif self._holder and (now_ns * 1e-9) >= self._lease_expiry_s:
@@ -219,6 +250,12 @@ class LocomotionAgent(ModuleAgent):
         odom.twist.twist.linear.x = self._v
         odom.twist.twist.angular.z = self._w
         self._odom_pub.publish(odom)
+        # sim: convert (v, w) -> 6 wheel speeds + 4 corner steer angles and drive the
+        # gz_ros2_control controllers. Safe-stop forces v=w=0 above -> all zero.
+        if self._wheel_cmd_pub is not None:
+            wheel_vel, steer_ang = kinematics.drive_and_steer(self._v, self._w)
+            self._wheel_cmd_pub.publish(Float64MultiArray(data=wheel_vel))
+            self._steer_cmd_pub.publish(Float64MultiArray(data=steer_ang))
 
     def _publish_fault(self, category, severity, description) -> None:
         fr = FaultReport()

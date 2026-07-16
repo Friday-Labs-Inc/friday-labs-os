@@ -66,7 +66,14 @@ def cmd_send(args) -> int:
     transport = MqttTransport(host=args.host, port=args.port,
                               client_id=f'cc-{args.operator_id}-{args.nonce}')
     acks = []
-    transport.subscribe(f'mark1/{args.rover}/ack/#', lambda t, p: acks.append(cbor2.loads(p)))
+
+    def _read_ack(raw):
+        # ACKs are plain CBOR, or a signed envelope when the rover holds a key;
+        # unwrap the envelope to its payload so either form prints cleanly.
+        msg = cbor2.loads(raw)
+        return msg.get('payload', msg) if isinstance(msg, dict) else msg
+
+    transport.subscribe(f'mark1/{args.rover}/ack/#', lambda t, p: acks.append(_read_ack(p)))
     transport.connect()
     time.sleep(0.3)
     transport.publish(f'mark1/{args.rover}/cmd/motion', protocol.encode(envelope))

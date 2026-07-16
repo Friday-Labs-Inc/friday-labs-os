@@ -16,6 +16,7 @@
   <depend>friday_msgs</depend>
   <depend>friday_module_agent</depend>
   <depend>lifecycle_msgs</depend>
+  <depend>nav_msgs</depend>
 
   <exec_depend>python3-paho-mqtt</exec_depend>
   <exec_depend>python3-cbor2</exec_depend>

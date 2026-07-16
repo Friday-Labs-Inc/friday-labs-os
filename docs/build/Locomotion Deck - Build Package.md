@@ -8,7 +8,7 @@
 - **Mechanical BOM + frame build:** the live JPL Open Source Rover repo — `github.com/nasa-jpl/open-source-rover`. Pull the chassis, rocker-bogie, wheels, and corner-steer mechanical parts from there; it is the validated, maintained source. This doc covers the **Friday Labs electronics** that replace the OSR's stock control electronics, plus integration.
 - **Electrical decisions:** [Locomotion Electronics](../electronics/Locomotion Electronics.md), [Electronics Backbone](../electronics/Electronics Backbone.md), [Safe-Stop Latency Budget](../addendums/Safe-Stop Latency Budget.md).
 
-> **We keep the OSR mechanism; we replace its control electronics — and re-proportion its frame.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack. Per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md), the frame is **re-proportioned to true Perseverance scale (~74 cm body, 0.2668×, 140 mm wheel)** — so OSR is the rocker-bogie mechanism donor, not a stock-dimension build; expect CAD re-spacing rather than a bolt-together kit.
+> **We keep the OSR mechanism; we replace its control electronics — and re-proportion its frame.** The OSR ships with RoboClaw controllers; we drive the same motors with our Cytron + galvanic-isolation + parking-pawl stack. Per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md) v1.2, the build uses the **HowToMechatronics Perseverance replica at its native 130 mm-wheel size** (≈0.247×, ~69 cm body — confirm off the in-repo DIY CAD `../../Mechanics/reference-models/howtomechatronics-replica/`); OSR is only the rocker-bogie mechanism reference.
 
 ## Electrical BOM (Friday Labs Locomotion stack)
 
@@ -103,7 +103,7 @@ Each step has a verify gate — don't advance until it passes. Mirrors [Phase 1 
 
 ## Drive-Motor Sizing (resolved)
 
-Inputs: 11 kg loaded mass · **140 mm wheels (r = 0.070 m)** · 20° max climb · 1.0 m/s target · 6 driven wheels · Crr = 0.10 (soil/grass). *(Re-derived 2026-06-19 for the 140 mm wheel per the [Mechanical Design Reference](../addendums/Mechanical Design Reference.md) re-anchor — was 130 mm. Motor and driver selections below still hold.)*
+Inputs: 11 kg loaded mass · **130 mm wheels (r = 0.065 m)** · 20° max climb · 1.0 m/s target · 6 driven wheels · Crr = 0.10 (soil/grass). *(Wheel reverted to **130 mm** per the creator — see [Mechanical Design Reference](../addendums/Mechanical Design Reference.md) v1.2; the 140 mm re-anchor is dropped. The table below was computed at 140 mm/r=0.070 — at 130 mm the per-motor torque need is slightly LOWER (F·r ∝ r), so these margins are conservative; RPM for 1.0 m/s rises to ~147.)*
 
 | Quantity | Result |
 |---|---|
@@ -113,7 +113,7 @@ Inputs: 11 kg loaded mass · **140 mm wheels (r = 0.070 m)** · 20° max climb �
 | Per motor (÷6) | **0.55 N·m** steady climb |
 | Design target (2× for uneven loading) | **≥1.1 N·m (≥11 kg·cm) stall/motor** |
 
-**Motor spec:** 12 V brushed DC gearmotor, **37D-class, ~70:1** → ~150 RPM (**≈1.1 m/s** at the 140 mm wheel), ~1.2–1.3 N·m (12–13 kg·cm) stall, ~5.5–5.9 A stall — still clears the ≥1.1 N·m target. Confirm against the chosen motor datasheet / live OSR BOM.
+**Motor spec:** 12 V brushed DC gearmotor, **37D-class, ~70:1** → ~150 RPM (**≈1.0 m/s** at the 130 mm wheel), ~1.2–1.3 N·m (12–13 kg·cm) stall, ~5.5–5.9 A stall — still clears the ≥1.1 N·m target. Confirm against the chosen motor datasheet / live OSR BOM.
 
 **Driver confirmed:** motor stall ~5.9 A → **10 A/channel = ~1.7× headroom.** Cytron 10 A class (MDD10A dual / MD-series single). Not 20/30 A.
 

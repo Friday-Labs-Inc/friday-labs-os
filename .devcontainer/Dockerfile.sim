@@ -1,0 +1,16 @@
+# Mark 1 SIM image — Gazebo Harmonic + ros_gz + ros2_control atop the dev image.
+# REP-2000 pairing: ROS 2 Jazzy <-> Gazebo Harmonic. Built on the Legion farm as
+# `friday-os:sim`. The lean `friday-os:dev` image stays Gazebo-free for non-sim work.
+FROM friday-os:dev
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-jazzy-ros-gz \
+      ros-jazzy-gz-ros2-control \
+      ros-jazzy-ros2-control \
+      ros-jazzy-ros2-controllers \
+      ros-jazzy-xacro \
+      ros-jazzy-robot-state-publisher \
+      ros-jazzy-joint-state-publisher \
+    && rm -rf /var/lib/apt/lists/*
+
+CMD ["bash"]

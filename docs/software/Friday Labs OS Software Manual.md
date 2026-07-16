@@ -216,6 +216,7 @@ dossier's 5-phase roadmap and the seven-stage sim bring-up.)
 | **2 — Walking skeleton** | Parts find each other, start up in order (lifecycle), and are watched by heartbeat. The spine everything bolts onto. | ✅ Complete | [Phase 2 — The Walking Skeleton](Phase 2 - Walking Skeleton.md) |
 | **3 — Communication** | Closed-loop motion (`MotionCommand` → `Odometry`) **and** the guarded Command Center boundary (Ed25519-signed MQTT link; every command validated). | ✅ Complete | [Closed-Loop Motion](Phase 3 - Closed-Loop Motion.md) · [Command Center Boundary](Phase 3 - Command Center Boundary.md) |
 | **4 — Safety** | **Authority enforcement** (only the lease holder may command; nonce + expiry), the **safe-stop watchdog** (pulse-loss / e-stop → motors-off, 112 ms), and **split-brain failover** (two-signal self-promote ~2.0 s; epoch-monotonic gate; clean hand-back `CORE@1→TLM@2→CORE@3`) — all ✅; HIL 100 ms p99 ⏳ (hardware-gated). | ✅ Sim-complete | [Phase 4 — Safety](Phase 4 - Safety.md) |
+| **Stage 1 — Gazebo sim** | A physical body in a physics world: the articulated six-wheel **rocker-bogie** URDF (measured from the scaled-Perseverance model) spawns, stands stably, and drives (odom 0→1.9 m) in Gazebo Harmonic; runs recorded to MCAP. Uneven-terrain + the real OS path in sim are next. | 🔄 In progress | [Stage 1 — Gazebo Simulation](Stage 1 - Gazebo Simulation.md) |
 | **5 — Autonomy & missions** | Mission planning, sensor fusion, mapping, and Spark coordination. | ⏳ Planned | _added when implemented_ |
 
 ---

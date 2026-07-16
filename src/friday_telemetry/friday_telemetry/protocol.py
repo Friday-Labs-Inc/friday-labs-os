@@ -78,6 +78,21 @@ def build_envelope(*, rover_id, sender_id, msg_id, nonce, issued_at, expires_at,
     return envelope
 
 
+def sign_telemetry(*, rover_id, msg_id, nonce, issued_at, expires_at, payload,
+                   private_key: Ed25519PrivateKey) -> dict:
+    """Sign a ROVER-ORIGINATED telemetry envelope (odom / fault / ack).
+
+    Same wire envelope as a command, but the rover is the sender (sender_id =
+    rover_id) and it signs with the rover's own key. The Command Center verifies
+    it against the rover's registered public key, so spoofed telemetry (a faked
+    position, an absent fault) is rejected. Identical signing path as
+    build_envelope, so the wire-contract golden vector covers it."""
+    return build_envelope(
+        rover_id=rover_id, sender_id=rover_id, msg_id=msg_id, nonce=nonce,
+        issued_at=issued_at, expires_at=expires_at, payload=payload,
+        private_key=private_key)
+
+
 def encode(envelope: dict) -> bytes:
     """Serialize an envelope to wire bytes (CBOR)."""
     return cbor2.dumps(envelope)
