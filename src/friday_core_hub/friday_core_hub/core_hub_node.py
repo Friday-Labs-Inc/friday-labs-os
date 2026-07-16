@@ -39,6 +39,7 @@ REGISTRY_EXPORT = '/var/lib/friday/registry.json'  # inside THIS service's writa
 
 DEGRADED_AGE_S = 1.0      # ~3 missed 200 ms heartbeats / 500 ms deadlines
 DEAD_AGE_S = 1.5          # liveliness lease + margin
+HEALTH_FAULT_FRESH_S = 2.5  # only honor a FAULT verdict while health is still arriving
 LIVENESS_OK = 'OK'
 LIVENESS_DEGRADED = 'DEGRADED'
 LIVENESS_DEAD = 'DEAD'
@@ -73,6 +74,7 @@ class CoreHub(Node):
         self._hb_subs = {}            # module_id -> Subscription
         self._health_subs = {}        # module_id -> Subscription
         self._health_overall = {}     # module_id -> HealthStatus.OVERALL_*
+        self._health_last_ns = {}     # module_id -> int (last health arrival)
         self._last_seen_ns = {}       # module_id -> int
         self._liveness = {}           # module_id -> LIVENESS_*
 
@@ -295,13 +297,18 @@ class CoreHub(Node):
         if module_id in self._health_subs:
             return
         topic = f'{namespace}/health'
+        # heartbeat_monitor QoS (best-effort, KEEP_LAST 1): only the *latest*
+        # health matters. state_default is RELIABLE KEEP_LAST 10, whose backlog
+        # replays stale FAULTs after a recovery and flaps a healthy board
+        # OK<->FAULT on the deck (seen on the wired fleet).
         self._health_subs[module_id] = self.create_subscription(
             HealthStatus, topic,
             lambda msg, mid=module_id: self._on_health(mid, msg),
-            qos.state_default(), callback_group=self._cb_group)
+            qos.heartbeat_monitor(), callback_group=self._cb_group)
         self.get_logger().info(f'monitoring health on {topic}')
 
     def _on_health(self, module_id: str, msg: HealthStatus) -> None:
+        self._health_last_ns[module_id] = self.get_clock().now().nanoseconds
         prev = self._health_overall.get(module_id)
         self._health_overall[module_id] = msg.overall
         if msg.overall == HealthStatus.OVERALL_FAULT and prev != msg.overall:
@@ -325,8 +332,10 @@ class CoreHub(Node):
                 new = LIVENESS_DEGRADED
             else:
                 new = LIVENESS_OK
-            if self._health_overall.get(module_id) == HealthStatus.OVERALL_FAULT:
-                new = LIVENESS_FAULT   # the module's own verdict outranks a fresh heartbeat
+            fault_age = (now - self._health_last_ns.get(module_id, 0)) / 1e9
+            if (self._health_overall.get(module_id) == HealthStatus.OVERALL_FAULT
+                    and fault_age < HEALTH_FAULT_FRESH_S):
+                new = LIVENESS_FAULT   # module's own live verdict outranks a fresh heartbeat
             if new != self._liveness.get(module_id):
                 self._liveness[module_id] = new
                 # rclpy caches severity per call site -- logging .info and
@@ -418,11 +427,27 @@ class CoreHub(Node):
                 f'supervisor: {node_name} get_state failed: {exc}')
             self._inflight.discard(node_name)
             return
+        if state == LCState.PRIMARY_STATE_ACTIVE:
+            # Active, yet its liveness is DEAD/FAULT: a latched watchdog fault
+            # whose link has since recovered (get_state just succeeded, so it IS
+            # reachable). Clear the safety latch with deactivate->activate. This
+            # is the auto-recovery for the TX-cut-then-reconnect case; a still-
+            # disconnected board never gets here (its get_state wouldn't answer).
+            module_id = self._node_to_module(node_name)
+            if self._liveness.get(module_id) in (LIVENESS_DEAD, LIVENESS_FAULT):
+                self.get_logger().warning(
+                    f'supervisor: {node_name} active but '
+                    f'{self._liveness.get(module_id)} -- recovering '
+                    f'(deactivate->activate)')
+                self._change(node_name, Transition.TRANSITION_DEACTIVATE)
+            else:
+                self._inflight.discard(node_name)
+            return
         transition_id = {
             LCState.PRIMARY_STATE_UNCONFIGURED: Transition.TRANSITION_CONFIGURE,
             LCState.PRIMARY_STATE_INACTIVE: Transition.TRANSITION_ACTIVATE,
         }.get(state)
-        if transition_id is None:  # active or mid-transition: nothing to do
+        if transition_id is None:  # mid-transition: nothing to do
             self._inflight.discard(node_name)
             return
         self._change(node_name, transition_id)
@@ -458,11 +483,17 @@ class CoreHub(Node):
             self._inflight.discard(node_name)
             return
         self.get_logger().info(f'supervisor: {node_name} {name} OK')
-        if transition_id == Transition.TRANSITION_CONFIGURE:
+        if transition_id in (Transition.TRANSITION_CONFIGURE,
+                             Transition.TRANSITION_DEACTIVATE):
             self._change(node_name, Transition.TRANSITION_ACTIVATE)
             return
         self._inflight.discard(node_name)
         self.get_logger().info(f'supervisor: {node_name} ACTIVE')
+
+    @staticmethod
+    def _node_to_module(node_name: str) -> str:
+        # 'mark1/mark1_mob_drive_001' -> 'MARK1-MOB-DRIVE-001'
+        return node_name.split('/')[-1].upper().replace('_', '-')
 
     @staticmethod
     def _transition_name(transition_id: int) -> str:
