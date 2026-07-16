@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'locomotion_agent = friday_locomotion.locomotion_agent_node:main',
+            'wheel_odometry = friday_locomotion.wheel_odometry_node:main',
         ],
     },
 )

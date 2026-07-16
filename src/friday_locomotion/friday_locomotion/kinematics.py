@@ -66,3 +66,37 @@ def drive_and_steer(v, w):
         steer_angles.append(max(-STEER_LIMIT, min(STEER_LIMIT, ang)))
 
     return wheel_velocities, steer_angles
+
+
+# ---- inverse: wheels -> body twist (odometry) ------------------------------
+# The two MIDDLE wheels are fixed (no steer), so they form a clean differential
+# pair whatever the corner wheels are doing:  v_mid = v - w*y_mid. Solving the
+# left/right pair gives body (v, w) exactly -- no steer angles needed.
+_Y_MID_LEFT = DRIVE_WHEELS[1][2]     # +0.323 (left_mid y)
+_Y_MID_RIGHT = DRIVE_WHEELS[4][2]    # -0.323 (right_mid y)
+
+
+def body_twist_from_wheels(wheel_velocities):
+    """wheel_velocities[6] (rad/s, DRIVE_WHEELS order) -> (v m/s, w rad/s).
+
+    Uses the middle differential pair (indices 1 and 4). Middle wheels only
+    roll their forward component, so this is exact for the fixed pair.
+    """
+    v_left = wheel_velocities[1] * WHEEL_RADIUS
+    v_right = wheel_velocities[4] * WHEEL_RADIUS
+    v = (v_left + v_right) / 2.0
+    w = (v_right - v_left) / (_Y_MID_LEFT - _Y_MID_RIGHT)
+    return v, w
+
+
+def integrate_pose(x, y, yaw, v, w, dt):
+    """Dead-reckon one step (unicycle model, exact arc when turning)."""
+    if abs(w) < _EPS:
+        return (x + v * dt * math.cos(yaw),
+                y + v * dt * math.sin(yaw),
+                yaw)
+    new_yaw = yaw + w * dt
+    radius = v / w
+    return (x + radius * (math.sin(new_yaw) - math.sin(yaw)),
+            y - radius * (math.cos(new_yaw) - math.cos(yaw)),
+            new_yaw)

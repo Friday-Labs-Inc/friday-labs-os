@@ -87,10 +87,19 @@ def generate_launch_description() -> LaunchDescription:
     load_ctrls = RegisterEventHandler(
         OnProcessExit(target_action=jsb, on_exit=[wheels, steer]))
 
+    # --- Phase 1 localization: wheel odometry + EKF (odom->base_link TF) ---
+    wheel_odom = Node(
+        package='friday_locomotion', executable='wheel_odometry', output='screen',
+        parameters=[{'use_sim_time': True}])
+    ekf = Node(
+        package='robot_localization', executable='ekf_node',
+        name='ekf_filter_node', output='screen',
+        parameters=[os.path.join(pkg, 'config', 'ekf.yaml')])
+
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_ground.sdf',
                               description='world file in friday_description/worlds'),
         DeclareLaunchArgument('headless', default_value='true',
                               description='true = server only; false = open the Gazebo GUI'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls , wheel_odom, ekf,
     ])
