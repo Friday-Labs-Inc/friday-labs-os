@@ -30,6 +30,9 @@ from friday_msgs.msg import (AuthorityLease, Heartbeat, HealthStatus, Mark1Heade
 from friday_msgs.srv import RegisterModule, RequestAuthority
 from friday_module_agent import authority, protocol, qos
 
+from friday_core_hub.decisions import (LIVENESS_DEAD, LIVENESS_FAULT,
+                                        LIVENESS_OK, classify_liveness,
+                                        supervisor_action)
 from friday_core_hub.registry import ModuleRegistry
 
 PRESENCE_TOPIC = '/mark1/system/presence'
@@ -37,14 +40,8 @@ REGISTER_SERVICE = '/mark1/system/register_module'
 # Snapshot for the FCC config plane, served read-only by the os-control agent.
 REGISTRY_EXPORT = '/var/lib/friday/registry.json'  # inside THIS service's writable state dir
 
-DEGRADED_AGE_S = 1.0      # ~3 missed 200 ms heartbeats / 500 ms deadlines
-DEAD_AGE_S = 1.5          # liveliness lease + margin
-HEALTH_FAULT_FRESH_S = 2.5  # only honor a FAULT verdict while health is still arriving
+# Liveness thresholds + verdict names live in decisions.py (pure, unit-tested).
 INFLIGHT_TIMEOUT_S = 30.0   # a change_state/get_state left unanswered this long is abandoned
-LIVENESS_OK = 'OK'
-LIVENESS_DEGRADED = 'DEGRADED'
-LIVENESS_DEAD = 'DEAD'
-LIVENESS_FAULT = 'FAULT'   # module itself reports OVERALL_FAULT (e.g. latched watchdog)
 
 # Authority-lease state machine (Authority Lease Protocol — "Authority Return").
 AUTH_OBSERVING = 'OBSERVING'     # boot: listen for an existing holder before taking the lease
@@ -327,16 +324,9 @@ class CoreHub(Node):
         now = self.get_clock().now().nanoseconds
         for module_id, last in self._last_seen_ns.items():
             age = (now - last) / 1e9
-            if age > DEAD_AGE_S:
-                new = LIVENESS_DEAD
-            elif age > DEGRADED_AGE_S:
-                new = LIVENESS_DEGRADED
-            else:
-                new = LIVENESS_OK
-            fault_age = (now - self._health_last_ns.get(module_id, 0)) / 1e9
-            if (self._health_overall.get(module_id) == HealthStatus.OVERALL_FAULT
-                    and fault_age < HEALTH_FAULT_FRESH_S):
-                new = LIVENESS_FAULT   # module's own live verdict outranks a fresh heartbeat
+            new = classify_liveness(
+                age, self._health_overall.get(module_id),
+                (now - self._health_last_ns.get(module_id, 0)) / 1e9)
             if new != self._liveness.get(module_id):
                 self._liveness[module_id] = new
                 # rclpy caches severity per call site -- logging .info and
@@ -442,30 +432,18 @@ class CoreHub(Node):
                 f'supervisor: {node_name} get_state failed: {exc}')
             self._inflight.pop(node_name, None)
             return
-        if state == LCState.PRIMARY_STATE_ACTIVE:
-            # Active, yet its liveness is DEAD/FAULT: a latched watchdog fault
-            # whose link has since recovered (get_state just succeeded, so it IS
-            # reachable). Clear the safety latch with deactivate->activate. This
-            # is the auto-recovery for the TX-cut-then-reconnect case; a still-
-            # disconnected board never gets here (its get_state wouldn't answer).
-            module_id = self._node_to_module(node_name)
-            if self._liveness.get(module_id) in (LIVENESS_DEAD, LIVENESS_FAULT):
-                self.get_logger().warning(
-                    f'supervisor: {node_name} active but '
-                    f'{self._liveness.get(module_id)} -- recovering '
-                    f'(deactivate->activate)')
-                self._change(node_name, Transition.TRANSITION_DEACTIVATE)
-            else:
-                self._inflight.pop(node_name, None)
-            return
-        transition_id = {
-            LCState.PRIMARY_STATE_UNCONFIGURED: Transition.TRANSITION_CONFIGURE,
-            LCState.PRIMARY_STATE_INACTIVE: Transition.TRANSITION_ACTIVATE,
-        }.get(state)
-        if transition_id is None:  # mid-transition: nothing to do
+        liveness = self._liveness.get(self._node_to_module(node_name))
+        action = supervisor_action(state, liveness)
+        if action.recover:
+            # Reachable (get_state answered) yet DEAD/FAULT: a latched watchdog
+            # fault whose link recovered -- deactivate->activate clears the latch.
+            self.get_logger().warning(
+                f'supervisor: {node_name} active but {liveness} -- recovering '
+                f'(deactivate->activate)')
+        if action.transition_id is None:   # healthy-active or mid-transition
             self._inflight.pop(node_name, None)
             return
-        self._change(node_name, transition_id)
+        self._change(node_name, action.transition_id)
 
     def _change(self, node_name, transition_id) -> None:
         client = self._change_clients.get(node_name)
