@@ -5,7 +5,7 @@ find_package(ament_cmake REQUIRED)
 
 # Install the sim assets to the package share dir (launch finds them there).
 install(
-  DIRECTORY urdf worlds config launch
+  DIRECTORY urdf worlds config launch meshes
   DESTINATION share/${PROJECT_NAME}
 )
 

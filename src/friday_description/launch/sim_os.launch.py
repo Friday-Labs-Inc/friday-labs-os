@@ -20,6 +20,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
+    AppendEnvironmentVariable,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
@@ -144,7 +145,12 @@ def generate_launch_description() -> LaunchDescription:
              condition=nav_cond),
     ]
 
+    # let gz resolve package://friday_description/meshes/* (visual meshes)
+    mesh_env = AppendEnvironmentVariable(
+        'GZ_SIM_RESOURCE_PATH', os.path.join(pkg, '..'))
+
     return LaunchDescription([
+        mesh_env,
         DeclareLaunchArgument('nav', default_value='false',
                               description='true = Nav2 autonomy (needs slam:=true)'),
         DeclareLaunchArgument('slam', default_value='false',
