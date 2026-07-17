@@ -89,7 +89,7 @@ def generate_launch_description() -> LaunchDescription:
     # ---- the real OS ----
     core = Node(package='friday_core_hub', executable='core_hub', name='core_hub',
                 output='screen',
-                parameters=[{'managed_nodes': ['locomotion'], 'autostart_delay_s': 10.0}])
+                parameters=[{'managed_nodes': ['locomotion=MARK1-LOCO-001'], 'autostart_delay_s': 10.0}])
     loco = Node(package='friday_locomotion', executable='locomotion_agent', name='locomotion',
                 output='screen',
                 parameters=[{'wheel_cmd_topic': WHEEL_CMD, 'steer_cmd_topic': STEER_CMD,
@@ -117,10 +117,39 @@ def generate_launch_description() -> LaunchDescription:
                      'node_names': ['slam_toolbox']}],
         condition=IfCondition(LaunchConfiguration('slam')))
 
+    # --- Phase 3+4: Nav2 under the authority chain (opt-in with nav:=true) ---
+    nav2_yaml = os.path.join(pkg, 'config', 'nav2.yaml')
+    nav_cond = IfCondition(LaunchConfiguration('nav'))
+    # NOTE: no use_sim_time — expires_at must live in the same WALL clock
+    # domain the core/loco authority chain validates against.
+    nav_adapter = Node(
+        package='friday_locomotion', executable='nav_motion_adapter',
+        output='screen', condition=nav_cond)
+    nav_nodes = [
+        Node(package='nav2_controller', executable='controller_server',
+             output='screen', parameters=[nav2_yaml],
+             remappings=[('cmd_vel', '/cmd_vel_nav')], condition=nav_cond),
+        Node(package='nav2_planner', executable='planner_server',
+             output='screen', parameters=[nav2_yaml], condition=nav_cond),
+        Node(package='nav2_behaviors', executable='behavior_server',
+             output='screen', parameters=[nav2_yaml],
+             remappings=[('cmd_vel', '/cmd_vel_nav')], condition=nav_cond),
+        Node(package='nav2_bt_navigator', executable='bt_navigator',
+             output='screen', parameters=[nav2_yaml], condition=nav_cond),
+        Node(package='nav2_lifecycle_manager', executable='lifecycle_manager',
+             name='lifecycle_manager_navigation', output='screen',
+             parameters=[{'use_sim_time': True, 'autostart': True,
+                          'node_names': ['controller_server', 'planner_server',
+                                         'behavior_server', 'bt_navigator']}],
+             condition=nav_cond),
+    ]
+
     return LaunchDescription([
+        DeclareLaunchArgument('nav', default_value='false',
+                              description='true = Nav2 autonomy (needs slam:=true)'),
         DeclareLaunchArgument('slam', default_value='false',
                               description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
         DeclareLaunchArgument('headless', default_value='true'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle, nav_adapter, *nav_nodes,
     ])

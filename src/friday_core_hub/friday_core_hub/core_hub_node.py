@@ -411,7 +411,18 @@ class CoreHub(Node):
             self.get_logger().info(
                 'rejoin: managed nodes already running; supervisor stays hands-off')
             return
-        managed = [n.strip('/') for n in self.get_parameter('managed_nodes').value if n]
+        # Each entry is 'node_name' or 'node_name=MODULE-ID'. The explicit form
+        # pins the liveness lookup; without it the name heuristic below applies
+        # (fits the ESP32 boards, NOT nodes like 'locomotion'/'phone_bridge' —
+        # a silent None lookup there disabled fault-recovery, found in sim).
+        raw = [n.strip('/') for n in self.get_parameter('managed_nodes').value if n]
+        self._module_ids = {}
+        managed = []
+        for entry in raw:
+            node_name, _, module_id = entry.partition('=')
+            managed.append(node_name)
+            if module_id:
+                self._module_ids[node_name] = module_id
         if not managed:
             self.get_logger().info('no managed_nodes configured; supervisor idle')
             return
@@ -512,9 +523,12 @@ class CoreHub(Node):
         self._inflight.pop(node_name, None)
         self.get_logger().info(f'supervisor: {node_name} ACTIVE')
 
-    @staticmethod
-    def _node_to_module(node_name: str) -> str:
-        # 'mark1/mark1_mob_drive_001' -> 'MARK1-MOB-DRIVE-001'
+    def _node_to_module(self, node_name: str) -> str:
+        # explicit 'node=MODULE-ID' mapping wins; else the board-style
+        # heuristic: 'mark1/mark1_mob_drive_001' -> 'MARK1-MOB-DRIVE-001'
+        explicit = self._module_ids.get(node_name)
+        if explicit:
+            return explicit
         return node_name.split('/')[-1].upper().replace('_', '-')
 
     @staticmethod

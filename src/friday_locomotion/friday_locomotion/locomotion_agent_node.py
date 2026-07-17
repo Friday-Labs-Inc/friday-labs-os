@@ -32,7 +32,7 @@ from friday_msgs.msg import (
     Heartbeat,
     MotionCommand,
 )
-from friday_module_agent import authority, qos
+from friday_module_agent import authority, protocol, qos
 from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
@@ -94,6 +94,7 @@ class LocomotionAgent(ModuleAgent):
         self._safe_stop_timeout = float(self.get_parameter('safe_stop_timeout_s').value)
         # safety state
         self._safe_state = False
+        self._safe_cause = ''
         self._last_safety_pulse_ns = 0
         self._activate_ns = 0
         # handles
@@ -136,6 +137,7 @@ class LocomotionAgent(ModuleAgent):
         self._x = self._y = self._theta = 0.0
         self._v = self._w = 0.0
         self._safe_state = False            # re-activation clears safe-state
+        self._safe_cause = ''
         now_ns = self.get_clock().now().nanoseconds
         self._last_ns = now_ns
         self._last_safety_pulse_ns = now_ns
@@ -223,11 +225,23 @@ class LocomotionAgent(ModuleAgent):
         if self._safe_state:
             return
         self._safe_state = True
+        self._safe_cause = cause
         self._v = self._w = 0.0              # motors to zero; steering frozen (theta unchanged)
         self._publish_fault(FaultReport.CATEGORY_WATCHDOG, FaultReport.SEVERITY_CRITICAL,
                             f'SAFE-STOP: {cause}')
         tail = f' (latency {latency_ms:.0f} ms)' if latency_ms is not None else ''
         self.get_logger().warning(f'SAFE-STOP entered: {cause}{tail}')
+
+    # ---- health: surface the latch so the supervisor can heal it ----------
+    # The health timer only runs while ACTIVE, so _safe_state here always means
+    # a LATCHED trip (pulse/lease loss, e-stop) — not a normal deactivate. The
+    # Core Hub classifies fresh FAULT health as LIVENESS_FAULT and its recover
+    # path (deactivate->activate) is the only way out of the latch.
+    def health_overall(self) -> int:
+        return protocol.HEALTH_FAULT if self._safe_state else protocol.HEALTH_OK
+
+    def health_detail(self) -> str:
+        return f'safe-stop latched: {self._safe_cause}' if self._safe_state else ''
 
     # ---- motion model -----------------------------------------------------
     def _step(self) -> None:

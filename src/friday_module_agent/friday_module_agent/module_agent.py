@@ -20,6 +20,7 @@ from friday_msgs.srv import RegisterModule
 
 from friday_module_agent import protocol, qos
 
+REG_KEEPALIVE_PERIOD_S = 60.0   # firmware parity: registered upsert period
 REGISTER_SERVICE = '/mark1/system/register_module'
 
 
@@ -77,6 +78,12 @@ class ModuleAgent(LifecycleNode):
             self.get_logger().error(f'[{self._module_id}] hardware configure failed: {exc}')
             return TransitionCallbackReturn.FAILURE
         self._register_async()
+        # Registration keep-alive (mirrors the ESP32 firmware's 60 s upsert):
+        # a restarted Core Hub boots with an empty registry and only monitors
+        # heartbeat/health for modules it knows — without this re-send it
+        # would never see us again, so its supervisor could never heal us.
+        self._reg_keepalive_timer = self.create_timer(
+            REG_KEEPALIVE_PERIOD_S, self._register_keepalive)
         self._primary_state = LCState.PRIMARY_STATE_INACTIVE
         return TransitionCallbackReturn.SUCCESS
 
@@ -132,20 +139,34 @@ class ModuleAgent(LifecycleNode):
         """Return HEALTH_OK / HEALTH_DEGRADED / HEALTH_FAULT for the health topic."""
         return protocol.HEALTH_OK
 
+    def health_detail(self) -> str:
+        """Human-readable cause when health_overall() is not OK ('' otherwise)."""
+        return ''
+
     # ---- internals --------------------------------------------------------
-    def _register_async(self) -> None:
-        if not self._reg_client.wait_for_service(timeout_sec=self._registry_timeout_s):
-            self.get_logger().warning(
-                f'[{self._module_id}] module-registry unavailable after '
-                f'{self._registry_timeout_s}s; continuing unregistered')
-            return
+    def _register_keepalive(self) -> None:
+        if not self._reg_client.service_is_ready():
+            return                       # registry down; try again next period
+        self._reg_client.call_async(self._registration_request()).add_done_callback(
+            self._on_register_response)
+
+    def _registration_request(self) -> RegisterModule.Request:
         req = RegisterModule.Request()
         req.header = self._header()
         req.hardware_type = self._hardware_type
         req.sw_version = self._sw_version
         req.fw_version = self._fw_version
         req.capabilities = self._capabilities
-        self._reg_client.call_async(req).add_done_callback(self._on_register_response)
+        return req
+
+    def _register_async(self) -> None:
+        if not self._reg_client.wait_for_service(timeout_sec=self._registry_timeout_s):
+            self.get_logger().warning(
+                f'[{self._module_id}] module-registry unavailable after '
+                f'{self._registry_timeout_s}s; continuing unregistered')
+            return
+        self._reg_client.call_async(self._registration_request()).add_done_callback(
+            self._on_register_response)
 
     def _on_register_response(self, future) -> None:
         try:
@@ -174,7 +195,7 @@ class ModuleAgent(LifecycleNode):
         msg.overall = self.health_overall()
         now_ns = self.get_clock().now().nanoseconds
         msg.uptime_s = max(0, int((now_ns - self._activated_at_ns) / 1e9))
-        msg.detail = ''
+        msg.detail = self.health_detail()
         self._health_pub.publish(msg)
 
     def _destroy_timers(self) -> None:
@@ -186,6 +207,9 @@ class ModuleAgent(LifecycleNode):
 
     def _teardown(self) -> None:
         self._destroy_timers()
+        if getattr(self, '_reg_keepalive_timer', None) is not None:
+            self.destroy_timer(self._reg_keepalive_timer)
+            self._reg_keepalive_timer = None
         for attr in ('_hb_pub', '_health_pub'):
             pub = getattr(self, attr)
             if pub is not None:
