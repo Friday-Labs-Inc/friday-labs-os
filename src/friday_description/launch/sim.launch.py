@@ -14,6 +14,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
+    AppendEnvironmentVariable,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     RegisterEventHandler,
@@ -109,7 +110,12 @@ def generate_launch_description() -> LaunchDescription:
                      'node_names': ['slam_toolbox']}],
         condition=IfCondition(LaunchConfiguration('slam')))
 
+    # let gz resolve package://friday_description/meshes/* (visual meshes)
+    mesh_env = AppendEnvironmentVariable(
+        'GZ_SIM_RESOURCE_PATH', os.path.join(pkg, '..'))
+
     return LaunchDescription([
+        mesh_env,
         DeclareLaunchArgument('slam', default_value='false',
                               description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf',

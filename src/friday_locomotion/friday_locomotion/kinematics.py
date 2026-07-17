@@ -13,7 +13,7 @@ coordinated steering — inner wheels turn sharper and roll slower than outer).
 
 import math
 
-WHEEL_RADIUS = 0.065       # 130 mm DIY-replica wheel (in production); was 0.070 (140 mm).
+WHEEL_RADIUS = 0.0668      # tire OD 133.6 mm, measured from the replica CAD assembly.
 STEER_LIMIT = 0.6          # rad, matches the URDF steer joint limit
 # NOTE: wheel POSITIONS below are the sim model's own geometry, not yet derived from the
 # in-production DIY CAD — re-measure off Mechanics/reference-models/howtomechatronics-replica
@@ -22,19 +22,19 @@ _EPS = 1e-5
 
 # drive wheels in controller order: LF, LM, LR, RF, RM, RR  (x fwd, y left)
 DRIVE_WHEELS = (
-    ('left_front',   0.302,  0.291),
-    ('left_mid',     0.015,  0.323),
-    ('left_rear',   -0.302,  0.291),
-    ('right_front',  0.302, -0.291),
-    ('right_mid',    0.015, -0.323),
-    ('right_rear',  -0.302, -0.291),
+    ('left_front',   0.290,  0.268),
+    ('left_mid',    -0.011,  0.301),
+    ('left_rear',   -0.290,  0.268),
+    ('right_front',  0.290, -0.268),
+    ('right_mid',   -0.011, -0.301),
+    ('right_rear',  -0.290, -0.268),
 )
 # steer wheels in controller order: LF, LR, RF, RR
 STEER_WHEELS = (
-    ('left_front',   0.302,  0.291),
-    ('left_rear',   -0.302,  0.291),
-    ('right_front',  0.302, -0.291),
-    ('right_rear',  -0.302, -0.291),
+    ('left_front',   0.290,  0.268),
+    ('left_rear',   -0.290,  0.268),
+    ('right_front',  0.290, -0.268),
+    ('right_rear',  -0.290, -0.268),
 )
 
 
@@ -72,8 +72,8 @@ def drive_and_steer(v, w):
 # The two MIDDLE wheels are fixed (no steer), so they form a clean differential
 # pair whatever the corner wheels are doing:  v_mid = v - w*y_mid. Solving the
 # left/right pair gives body (v, w) exactly -- no steer angles needed.
-_Y_MID_LEFT = DRIVE_WHEELS[1][2]     # +0.323 (left_mid y)
-_Y_MID_RIGHT = DRIVE_WHEELS[4][2]    # -0.323 (right_mid y)
+_Y_MID_LEFT = DRIVE_WHEELS[1][2]     # +0.301 (left_mid y)
+_Y_MID_RIGHT = DRIVE_WHEELS[4][2]    # -0.301 (right_mid y)
 
 
 def body_twist_from_wheels(wheel_velocities):
