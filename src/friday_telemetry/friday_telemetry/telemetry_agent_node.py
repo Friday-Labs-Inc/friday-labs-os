@@ -32,6 +32,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
+from std_msgs.msg import Bool
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 
@@ -58,6 +60,11 @@ REQUEST_AUTHORITY_SERVICE = '/mark1/system/request_authority'
 LOCOMOTION_CMD_TOPIC = '/mark1/locomotion/cmd_motion'
 FAULT_TOPIC = '/mark1/telemetry/fault'
 LOCO_ODOM_TOPIC = '/mark1/locomotion/odometry'
+ENVPOD_NS = '/mark1/envpod'          # world-sense pod (SensorHub on the Zero W)
+PHONE_FIX_TOPIC = '/mark1/phone/fix'
+ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
+ENV_FRESH_S = 30.0                   # cached value older than this is left out
+GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
 LOCO_FAULT_TOPIC = '/mark1/locomotion/fault'
 
 # Authority state (Authority Lease Protocol — "Failover" / "Authority Return").
@@ -69,6 +76,30 @@ LEASE_RENEW_S = 0.5            # 2 s lease, renewed every 500 ms while holding
 PULSE_PERIOD_S = 0.05         # 20 Hz safety pulse while holding
 PULSE_LOST_S = 1.5           # Core's safety pulse missing >= 1.5 s = pulse_lost
 STABLE_QUIET_S = 1.0         # "no motion" = no nonzero command issued for >= 1 s
+
+
+def build_env_payload(entries: dict, now_ns: int, fresh_ns: int) -> dict | None:
+    """entries: field -> (value, stamp_ns). Returns the tlm/env payload with only
+    the fields fresher than fresh_ns, or None when nothing fresh (pod silent —
+    publishing nothing keeps the operator view honestly stale)."""
+    payload = {}
+    newest_ns = 0
+    for field, (value, stamp_ns) in entries.items():
+        if now_ns - stamp_ns <= fresh_ns:
+            payload[field] = value
+            newest_ns = max(newest_ns, stamp_ns)
+    if not payload:
+        return None
+    return {'class': 'env', **payload, 'stamp': newest_ns / 1e9}
+
+
+def build_gps_payload(msg: 'NavSatFix') -> dict | None:
+    """NavSatFix -> tlm/gps payload; None when there is no fix (no fabricated
+    zero-island coordinates on the operator map)."""
+    if msg.status.status < 0:            # NavSatStatus.STATUS_NO_FIX
+        return None
+    return {'class': 'gps', 'lat': msg.latitude, 'lon': msg.longitude,
+            'alt_m': msg.altitude, 'fix': 'FIX', 'stamp': _t2s(msg.header.stamp)}
 
 
 def _t2s(t) -> float:
@@ -122,6 +153,12 @@ class TelemetryAgent(ModuleAgent):
         self._tlm_fault_sub = None
         self._last_odom_pub_ns = 0
         self._odom_min_period_ns = 0
+        # world senses: cached latest env-pod values + phone GPS egress state
+        self._env_entries = {}             # field -> (value, stamp_ns)
+        self._env_subs = []
+        self._env_timer = None
+        self._fix_sub = None
+        self._last_gps_pub_ns = 0
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -188,6 +225,33 @@ class TelemetryAgent(ModuleAgent):
                 FaultReport, LOCO_FAULT_TOPIC, self._on_fault, qos.state_default())
             self._tlm_fault_sub = self.create_subscription(
                 FaultReport, FAULT_TOPIC, self._on_fault, qos.state_default())
+            # world senses (advisory pods): cache latest, snapshot on a timer
+            def _cache(field, extract):
+                def cb(msg):
+                    self._env_entries[field] = (
+                        extract(msg), self.get_clock().now().nanoseconds)
+                return cb
+            self._env_subs = [
+                self.create_subscription(
+                    Temperature, f'{ENVPOD_NS}/temperature',
+                    _cache('temperature_c', lambda m: m.temperature), qos.sensor_stream()),
+                self.create_subscription(
+                    RelativeHumidity, f'{ENVPOD_NS}/humidity',
+                    _cache('humidity_pct', lambda m: m.relative_humidity * 100.0),
+                    qos.sensor_stream()),
+                self.create_subscription(
+                    FluidPressure, f'{ENVPOD_NS}/pressure',
+                    _cache('pressure_hpa', lambda m: m.fluid_pressure / 100.0),
+                    qos.sensor_stream()),
+                self.create_subscription(
+                    Illuminance, f'{ENVPOD_NS}/illuminance',
+                    _cache('light_lux', lambda m: m.illuminance), qos.sensor_stream()),
+                self.create_subscription(
+                    Bool, f'{ENVPOD_NS}/presence',
+                    _cache('presence', lambda m: bool(m.data)), qos.sensor_stream()),
+            ]
+            self._fix_sub = self.create_subscription(
+                NavSatFix, PHONE_FIX_TOPIC, self._on_fix, qos.sensor_stream())
 
     def activate_hardware(self) -> None:
         try:
@@ -201,6 +265,8 @@ class TelemetryAgent(ModuleAgent):
         self._core_lease_expiry_s = 0.0
         self._core_seen = False
         self._failover_timer = self.create_timer(FAILOVER_CHECK_S, self._check_failover)
+        if self._rover_priv is not None:
+            self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
         self.get_logger().info(
             f'Command Center boundary up for rover {self._rover_id} '
             f'(operators allowlisted: {len(self._validator._keys)}) — monitoring Core authority')
@@ -212,6 +278,9 @@ class TelemetryAgent(ModuleAgent):
         if self._failover_timer is not None:
             self.destroy_timer(self._failover_timer)
             self._failover_timer = None
+        if self._env_timer is not None:
+            self.destroy_timer(self._env_timer)
+            self._env_timer = None
         if self._auth_state == TLM_HOLDING:
             self._stand_down()
         if self._transport is not None:
@@ -249,6 +318,22 @@ class TelemetryAgent(ModuleAgent):
             self.get_logger().error(
                 f'cannot load rover_key_file {path}: {type(exc).__name__}')
             return None
+
+    def _publish_env(self) -> None:
+        payload = build_env_payload(
+            self._env_entries, self.get_clock().now().nanoseconds,
+            int(ENV_FRESH_S * 1e9))
+        if payload is not None:
+            self._publish_signed_telemetry('tlm/env', payload)
+
+    def _on_fix(self, msg: NavSatFix) -> None:
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_gps_pub_ns < int(GPS_TLM_MIN_PERIOD_S * 1e9):
+            return
+        payload = build_gps_payload(msg)
+        if payload is not None:
+            self._last_gps_pub_ns = now_ns
+            self._publish_signed_telemetry('tlm/gps', payload)
 
     # ---- outbound telemetry (sign odom/fault out to the operator) ----------
     def _on_odom(self, msg: Odometry) -> None:
