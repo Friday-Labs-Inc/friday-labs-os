@@ -21,6 +21,7 @@ ever touched from the executor thread.
 from __future__ import annotations
 
 import json
+import math
 import queue
 import time
 
@@ -33,7 +34,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, Float32MultiArray
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 
@@ -62,6 +63,8 @@ FAULT_TOPIC = '/mark1/telemetry/fault'
 LOCO_ODOM_TOPIC = '/mark1/locomotion/odometry'
 ENVPOD_NS = '/mark1/envpod'          # world-sense pod (SensorHub on the Zero W)
 PHONE_FIX_TOPIC = '/mark1/phone/fix'
+PHONE_ATTITUDE_TOPIC = '/mark1/phone/attitude'   # [tilt_deg, heading_deg, vib_rms]
+ATT_TLM_PERIOD_S = 5.0               # operator cadence; the bus stays 10 Hz
 ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
 ENV_FRESH_S = 30.0                   # cached value older than this is left out
 GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
@@ -91,6 +94,23 @@ def build_env_payload(entries: dict, now_ns: int, fresh_ns: int) -> dict | None:
     if not payload:
         return None
     return {'class': 'env', **payload, 'stamp': newest_ns / 1e9}
+
+
+def build_attitude_payload(values, stamp_s: float) -> dict | None:
+    """[tilt_deg, heading_deg, vib_rms] -> tlm/imu payload.
+
+    NaN means the rover-side math said "unknown" (no magnetometer, gravity
+    unusable) — those fields are OMITTED rather than sent as NaN, so the
+    operator view shows a blank, not a fake zero. All None -> no message.
+    """
+    if len(values) < 3:
+        return None
+    names = ('tilt_deg', 'heading_deg', 'vibration_rms')
+    payload = {n: float(v) for n, v in zip(names, values[:3])
+               if v is not None and math.isfinite(v)}
+    if not payload:
+        return None
+    return {'class': 'imu', **payload, 'stamp': stamp_s}
 
 
 def build_gps_payload(msg: 'NavSatFix') -> dict | None:
@@ -159,6 +179,8 @@ class TelemetryAgent(ModuleAgent):
         self._env_timer = None
         self._fix_sub = None
         self._last_gps_pub_ns = 0
+        self._attitude_sub = None
+        self._last_att_pub_ns = 0
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -252,6 +274,9 @@ class TelemetryAgent(ModuleAgent):
             ]
             self._fix_sub = self.create_subscription(
                 NavSatFix, PHONE_FIX_TOPIC, self._on_fix, qos.sensor_stream())
+            self._attitude_sub = self.create_subscription(
+                Float32MultiArray, PHONE_ATTITUDE_TOPIC, self._on_attitude,
+                qos.sensor_stream())
 
     def activate_hardware(self) -> None:
         try:
@@ -325,6 +350,15 @@ class TelemetryAgent(ModuleAgent):
             int(ENV_FRESH_S * 1e9))
         if payload is not None:
             self._publish_signed_telemetry('tlm/env', payload)
+
+    def _on_attitude(self, msg: Float32MultiArray) -> None:
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_att_pub_ns < int(ATT_TLM_PERIOD_S * 1e9):
+            return                        # summarise: the bus runs 10 Hz, the radio needs 0.2
+        payload = build_attitude_payload(list(msg.data), now_ns / 1e9)
+        if payload is not None:
+            self._last_att_pub_ns = now_ns
+            self._publish_signed_telemetry('tlm/imu', payload)
 
     def _on_fix(self, msg: NavSatFix) -> None:
         now_ns = self.get_clock().now().nanoseconds
