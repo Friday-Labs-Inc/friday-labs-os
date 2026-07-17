@@ -21,6 +21,10 @@ from dataclasses import dataclass
 # glitches or spoofed packets, never real rover motion.
 ACCEL_ABS_MAX = 80.0    # m/s^2 (~8 g)
 GYRO_ABS_MAX = 35.0     # rad/s (~2000 deg/s)
+# Earth's field is ~25-65 uT. Anything far outside is a magnet, a motor, or a
+# glitch — reject rather than report a confidently wrong heading.
+MAG_NORM_MIN_UT = 15.0
+MAG_NORM_MAX_UT = 90.0
 
 # A fix that moves more than this from the previous fresh fix is rejected as a
 # teleport (0.5 deg of latitude is ~55 km — no rover does that between fixes).
@@ -37,7 +41,12 @@ HEALTH_DEGRADED = 1
 
 @dataclass(frozen=True)
 class ImuSample:
-    """One validated IMU reading, SI units, all fields finite."""
+    """One validated IMU reading, SI units, all fields finite.
+
+    mx/my/mz (microtesla) are the magnetometer when the phone streams one and
+    the reading passes the field-strength gate; None otherwise. They feed the
+    ADVISORY backup-attitude heading only — never localization.
+    """
 
     ax: float
     ay: float
@@ -45,6 +54,9 @@ class ImuSample:
     gx: float
     gy: float
     gz: float
+    mx: float = None
+    my: float = None
+    mz: float = None
 
 
 @dataclass(frozen=True)
@@ -93,8 +105,14 @@ def _find_triplet(data: dict, substring: str):
     return None
 
 
-def _parse_csv(text: str, accel_i: int, gyro_i: int):
-    """HyperIMU CSV line -> (accel, gyro) triplets, or None.
+def mag_is_plausible(mx, my, mz) -> bool:
+    """True iff the vector's magnitude looks like Earth's field."""
+    norm = math.sqrt(mx * mx + my * my + mz * mz)
+    return MAG_NORM_MIN_UT <= norm <= MAG_NORM_MAX_UT
+
+
+def _parse_csv(text: str, accel_i: int, gyro_i: int, mag_i: int = -1):
+    """HyperIMU CSV line -> (accel, gyro, mag) triplets, or None. mag may be None.
 
     The stream is the phone's TICKED sensors in list order, 3 floats each.
     With only Accelerometer + Gyroscope ticked (the documented setup) the
@@ -102,7 +120,8 @@ def _parse_csv(text: str, accel_i: int, gyro_i: int):
     csv_accel_index / csv_gyro_index parameters.
     """
     parts = text.strip().split(',')
-    need = max(accel_i, gyro_i) + 3
+    indices = [accel_i, gyro_i] + ([mag_i] if mag_i >= 0 else [])
+    need = max(indices) + 3
     if len(parts) < need:
         return None
     try:
@@ -111,10 +130,13 @@ def _parse_csv(text: str, accel_i: int, gyro_i: int):
         return None
     if not all(math.isfinite(v) for v in vals):
         return None
-    return tuple(vals[accel_i:accel_i + 3]), tuple(vals[gyro_i:gyro_i + 3])
+    mag = tuple(vals[mag_i:mag_i + 3]) if mag_i >= 0 else None
+    if mag is not None and not mag_is_plausible(*mag):
+        mag = None                      # drop the mag, keep the accel/gyro sample
+    return tuple(vals[accel_i:accel_i + 3]), tuple(vals[gyro_i:gyro_i + 3]), mag
 
 
-def parse_imu_datagram(raw: bytes, accel_i: int = 0, gyro_i: int = 3):
+def parse_imu_datagram(raw: bytes, accel_i: int = 0, gyro_i: int = 3, mag_i: int = -1):
     """bytes -> ImuSample, or None if the datagram fails any check."""
     try:
         text = raw.decode('utf-8')
@@ -123,16 +145,18 @@ def parse_imu_datagram(raw: bytes, accel_i: int = 0, gyro_i: int = 3):
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        csv = _parse_csv(text, accel_i, gyro_i)
+        csv = _parse_csv(text, accel_i, gyro_i, mag_i)
         if csv is None:
             return None
-        accel, gyro = csv
+        accel, gyro, mag = csv
         if any(abs(a) > ACCEL_ABS_MAX for a in accel):
             return None
         if any(abs(g) > GYRO_ABS_MAX for g in gyro):
             return None
+        mag = mag or (None, None, None)
         return ImuSample(ax=accel[0], ay=accel[1], az=accel[2],
-                         gx=gyro[0], gy=gyro[1], gz=gyro[2])
+                         gx=gyro[0], gy=gyro[1], gz=gyro[2],
+                         mx=mag[0], my=mag[1], mz=mag[2])
     if not isinstance(data, dict):
         return None
     accel = _find_triplet(data, 'acc')

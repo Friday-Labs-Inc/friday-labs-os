@@ -19,21 +19,26 @@ Contract notes:
   * No commands ever flow to the phone; the sockets are receive-only.
 """
 
+import collections
 import math
 import select
 import socket
 
 import rclpy
-from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
+from sensor_msgs.msg import Imu, MagneticField, NavSatFix, NavSatStatus
+from std_msgs.msg import Float32MultiArray
 
 from friday_module_agent import qos
 from friday_module_agent.runner import spin_agent
 from friday_module_agent.module_agent import ModuleAgent
 
-from friday_phone_bridge import ingest
+from friday_phone_bridge import attitude, ingest
 
 FIX_TOPIC = '/mark1/phone/fix'
 IMU_TOPIC = '/mark1/phone/imu'
+MAG_TOPIC = '/mark1/phone/mag'
+ATTITUDE_TOPIC = '/mark1/phone/attitude'   # backup attitude: [tilt_deg, heading_deg, vib_rms]
+VIB_WINDOW = 20                            # ~2 s of samples at the phone's 10 Hz
 FRAME_ID = 'phone_link'
 
 POLL_PERIOD_S = 0.02            # 50 Hz socket drain
@@ -67,10 +72,13 @@ class PhoneBridge(ModuleAgent):
         self.declare_parameter('max_imu_msgs_per_s', 100)
         self.declare_parameter('csv_accel_index', 0)   # HyperIMU CSV field maps
         self.declare_parameter('csv_gyro_index', 3)    # (accel+gyro only ticked)
+        # -1 = phone streams no magnetometer -> no heading (honest unknown).
+        self.declare_parameter('csv_mag_index', -1)
 
         self._fix_pub = None
         self._imu_pub = None
         self._imu_sock = None
+        self._accel_window = collections.deque(maxlen=VIB_WINDOW)
         self._gpsd_sock = None
         self._gpsd_buffer = b''
         self._gpsd_retry_at_ns = 0
@@ -89,6 +97,12 @@ class PhoneBridge(ModuleAgent):
             NavSatFix, FIX_TOPIC, qos.sensor_stream())
         self._imu_pub = self.create_lifecycle_publisher(
             Imu, IMU_TOPIC, qos.sensor_stream())
+        self._mag_pub = self.create_lifecycle_publisher(
+            MagneticField, MAG_TOPIC, qos.sensor_stream())
+        # Backup attitude (ADVISORY): tilt + magnetic heading + vibration RMS.
+        # NOT localization-grade — see friday_phone_bridge/attitude.py.
+        self._attitude_pub = self.create_lifecycle_publisher(
+            Float32MultiArray, ATTITUDE_TOPIC, qos.sensor_stream())
         bind = self.get_parameter('bind_address').value
         port = int(self.get_parameter('imu_port').value)
         self._imu_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -160,7 +174,8 @@ class PhoneBridge(ModuleAgent):
             sample = ingest.parse_imu_datagram(
                 raw,
                 accel_i=int(self.get_parameter('csv_accel_index').value),
-                gyro_i=int(self.get_parameter('csv_gyro_index').value))
+                gyro_i=int(self.get_parameter('csv_gyro_index').value),
+                mag_i=int(self.get_parameter('csv_mag_index').value))
             if sample is None:
                 self._drop('imu_parse')
                 continue
@@ -221,6 +236,28 @@ class PhoneBridge(ModuleAgent):
         msg.angular_velocity.z = sample.gz
         self._imu_pub.publish(msg)
         self._last_imu_ns = self.get_clock().now().nanoseconds
+        self._publish_attitude(sample)
+
+    def _publish_attitude(self, sample: ingest.ImuSample) -> None:
+        """Advisory backup attitude. NaN = 'unknown', never a guessed value."""
+        if sample.mx is not None:
+            mag = MagneticField()
+            mag.header.stamp = self.get_clock().now().to_msg()
+            mag.header.frame_id = FRAME_ID
+            mag.magnetic_field_covariance[0] = -1.0     # uncalibrated
+            mag.magnetic_field.x = sample.mx * 1e-6     # uT -> tesla (REP-145)
+            mag.magnetic_field.y = sample.my * 1e-6
+            mag.magnetic_field.z = sample.mz * 1e-6
+            self._mag_pub.publish(mag)
+        self._accel_window.append((sample.ax, sample.ay, sample.az))
+        tilt = attitude.tilt_deg(sample.ax, sample.ay, sample.az)
+        heading = attitude.heading_deg(sample.ax, sample.ay, sample.az,
+                                       sample.mx, sample.my, sample.mz)
+        vib = attitude.vibration_rms(self._accel_window)
+        out = Float32MultiArray()
+        out.data = [float('nan') if v is None else float(v)
+                    for v in (tilt, heading, vib)]
+        self._attitude_pub.publish(out)
 
     def _publish_fix(self, fix: ingest.FixSample) -> None:
         msg = NavSatFix()

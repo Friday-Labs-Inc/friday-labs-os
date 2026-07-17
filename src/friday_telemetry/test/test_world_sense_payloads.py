@@ -1,7 +1,9 @@
 """Pure payload builders for the world-sense egress (tlm/env + tlm/gps)."""
 from types import SimpleNamespace
 
-from friday_telemetry.telemetry_agent_node import build_env_payload, build_gps_payload
+from friday_telemetry.telemetry_agent_node import (build_attitude_payload,
+                                                   build_env_payload,
+                                                   build_gps_payload)
 
 S = 1_000_000_000  # ns per second
 
@@ -39,3 +41,22 @@ def test_gps_payload_maps_navsatfix():
 
 def test_gps_payload_none_without_fix():
     assert build_gps_payload(_fix(status=-1)) is None
+
+
+def test_attitude_payload_maps_all_three():
+    p = build_attitude_payload([9.76, 131.0, 0.03], stamp_s=1000.0)
+    assert p == {'class': 'imu', 'tilt_deg': 9.76, 'heading_deg': 131.0,
+                 'vibration_rms': 0.03, 'stamp': 1000.0}
+
+
+def test_attitude_payload_omits_unknown_fields_never_fakes_them():
+    nan = float('nan')
+    p = build_attitude_payload([9.76, nan, 0.03], stamp_s=1.0)   # no magnetometer
+    assert 'heading_deg' not in p          # omitted, NOT sent as 0 or NaN
+    assert p['tilt_deg'] == 9.76 and p['vibration_rms'] == 0.03
+
+
+def test_attitude_payload_none_when_nothing_known():
+    nan = float('nan')
+    assert build_attitude_payload([nan, nan, nan], stamp_s=1.0) is None
+    assert build_attitude_payload([1.0], stamp_s=1.0) is None
