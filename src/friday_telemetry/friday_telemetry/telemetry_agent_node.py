@@ -218,6 +218,8 @@ class TelemetryAgent(ModuleAgent):
         self._map_msg = None
         self._map_digest = ''
         self._map_timer = None
+        self._tf_buffer = None
+        self._tf_listener = None
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -322,6 +324,16 @@ class TelemetryAgent(ModuleAgent):
                                  durability=DurabilityPolicy.TRANSIENT_LOCAL)
             self._map_sub = self.create_subscription(
                 OccupancyGrid, MAP_TOPIC, self._on_map, map_qos)
+            # map-frame pose: the locomotion odom is DEAD-RECKONED (integrated
+            # commanded velocities, no feedback) and drifts unboundedly — fine
+            # as a heartbeat of motion, wrong as a position on the SLAM map.
+            # When TF carries map->base_link (SLAM running), radio THAT pose.
+            try:
+                from tf2_ros import Buffer, TransformListener
+                self._tf_buffer = Buffer()
+                self._tf_listener = TransformListener(self._tf_buffer, self)
+            except ImportError:
+                self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
 
     def activate_hardware(self) -> None:
         try:
@@ -429,19 +441,39 @@ class TelemetryAgent(ModuleAgent):
             self._publish_signed_telemetry('tlm/gps', payload)
 
     # ---- outbound telemetry (sign odom/fault out to the operator) ----------
+    def _map_frame_pose(self):
+        """(x, y, qz, qw) of base_link in the MAP frame, or None."""
+        if self._tf_buffer is None:
+            return None
+        try:
+            import rclpy.time
+            tf = self._tf_buffer.lookup_transform(
+                'map', 'base_link', rclpy.time.Time())
+        except Exception:  # noqa: BLE001 - no SLAM / TF not up yet
+            return None
+        tr, q = tf.transform.translation, tf.transform.rotation
+        return tr.x, tr.y, q.z, q.w
+
     def _on_odom(self, msg: Odometry) -> None:
         now_ns = self.get_clock().now().nanoseconds
         if now_ns - self._last_odom_pub_ns < self._odom_min_period_ns:
             return                                     # downsample the full-rate DDS odom
         self._last_odom_pub_ns = now_ns
         p, t = msg.pose.pose, msg.twist.twist
-        self._publish_signed_telemetry('tlm/odom', {
-            'class': 'odom',
+        payload = {
+            'class': 'odom', 'frame': 'dead-reckon',
             'x': p.position.x, 'y': p.position.y, 'z': p.position.z,
             'qx': p.orientation.x, 'qy': p.orientation.y,
             'qz': p.orientation.z, 'qw': p.orientation.w,
             'vx': t.linear.x, 'vy': t.linear.y, 'wz': t.angular.z,
-            'stamp': _t2s(msg.header.stamp)})
+            'stamp': _t2s(msg.header.stamp)}
+        pose = self._map_frame_pose()
+        if pose is not None:
+            payload['frame'] = 'map'
+            payload['x'], payload['y'] = pose[0], pose[1]
+            payload['qx'] = payload['qy'] = 0.0
+            payload['qz'], payload['qw'] = pose[2], pose[3]
+        self._publish_signed_telemetry('tlm/odom', payload)
 
     def _on_fault(self, msg: FaultReport) -> None:
         self._publish_signed_telemetry('tlm/fault', {
