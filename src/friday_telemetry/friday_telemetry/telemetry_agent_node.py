@@ -249,6 +249,8 @@ class TelemetryAgent(ModuleAgent):
                                         bool(self.get_parameter('tf_use_sim_time').value))])
         self._tf_buffer = None
         self._tf_listener = None
+        from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+        self._cloud_cbg = MutuallyExclusiveCallbackGroup()  # clouds serialize on ONE thread, never saturate the pool nor block the heartbeat/lifecycle
         self._cloud_subs = []
         self._voxels = {}               # {(i,j,k): last_frame_idx} in map frame
         self._voxel_frame = 0
@@ -363,7 +365,8 @@ class TelemetryAgent(ModuleAgent):
             for topic in CLOUD_TOPICS:
                 self._cloud_subs.append(self.create_subscription(
                     PointCloud2, topic,
-                    lambda msg, t=topic: self._on_cloud(msg, t), qos.sensor_stream()))
+                    lambda msg, t=topic: self._on_cloud(msg, t), qos.sensor_stream(),
+                    callback_group=self._cloud_cbg))
             # map-frame pose: the locomotion odom is DEAD-RECKONED (integrated
             # commanded velocities, no feedback) and drifts unboundedly — fine
             # as a heartbeat of motion, wrong as a position on the SLAM map.
@@ -390,7 +393,8 @@ class TelemetryAgent(ModuleAgent):
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
-            self._voxel_timer = self.create_timer(VOXEL_TLM_PERIOD_S, self._publish_voxels)
+            self._voxel_timer = self.create_timer(
+                VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
         self.get_logger().info(
             f'Command Center boundary up for rover {self._rover_id} '
             f'(operators allowlisted: {len(self._validator._keys)}) — monitoring Core authority')
@@ -485,11 +489,17 @@ class TelemetryAgent(ModuleAgent):
         if len(data) == 0:
             return
         arr = np.column_stack([data['x'], data['y'], data['z']]).astype(float)
+        finite = np.isfinite(arr).all(axis=1)
+        if not finite.any():
+            return
+        arr = arr[finite]
         mat = _tf_matrix(tf)
+        if not np.all(np.isfinite(mat)):
+            return                          # bad TF during startup: skip, don't churn
         world = (np.hstack([arr, np.ones((arr.shape[0], 1))]) @ mat.T)[:, :3]
         colors = None
         if has_rgb:
-            rgb_i = np.asarray(data['rgb'], dtype=np.float32).view(np.uint32)
+            rgb_i = np.asarray(data['rgb'], dtype=np.float32)[finite].view(np.uint32)
             r = (rgb_i >> 16) & 0xFF; g = (rgb_i >> 8) & 0xFF; b = rgb_i & 0xFF
             c = ((r & 0xE0) | ((g & 0xE0) >> 3) | ((b & 0xC0) >> 6)).astype(np.uint8)
             colors = np.where(c == 0, 1, c).tolist()
