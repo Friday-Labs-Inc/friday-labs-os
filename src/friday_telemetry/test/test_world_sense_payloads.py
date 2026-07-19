@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 
 from friday_telemetry.telemetry_agent_node import (build_attitude_payload,
+                                                   build_map_payload,
                                                    build_env_payload,
                                                    build_gps_payload)
 
@@ -60,3 +61,44 @@ def test_attitude_payload_none_when_nothing_known():
     nan = float('nan')
     assert build_attitude_payload([nan, nan, nan], stamp_s=1.0) is None
     assert build_attitude_payload([1.0], stamp_s=1.0) is None
+
+
+def _grid(w=4, h=3, cells=None, res=0.05, ox=-1.0, oy=-2.0):
+    from types import SimpleNamespace
+    data = cells if cells is not None else [-1, 0, 100, 0] * 3
+    return SimpleNamespace(
+        data=data,
+        info=SimpleNamespace(
+            width=w, height=h, resolution=res,
+            origin=SimpleNamespace(
+                position=SimpleNamespace(x=ox, y=oy),
+                orientation=SimpleNamespace(z=0.0, w=1.0))),
+        header=SimpleNamespace(stamp=SimpleNamespace(sec=42, nanosec=0)))
+
+
+def test_map_payload_round_trips_the_grid():
+    import base64
+    import zlib
+    p, digest = build_map_payload(_grid(), prev_digest='')
+    assert p['class'] == 'map' and p['enc'] == 'zlib-b64'
+    assert (p['w'], p['h'], p['res']) == (4, 3, 0.05)
+    assert (p['ox'], p['oy']) == (-1.0, -2.0)
+    raw = zlib.decompress(base64.b64decode(p['data']))
+    # -1 (unknown) survives as 0xFF; free 0; wall 100
+    assert list(raw[:4]) == [255, 0, 100, 0]
+    assert len(raw) == 12 and digest
+
+
+def test_map_payload_skips_when_unchanged():
+    g = _grid()
+    p1, d1 = build_map_payload(g, prev_digest='')
+    p2, d2 = build_map_payload(g, prev_digest=d1)
+    assert p1 is not None and p2 is None and d2 == d1
+
+
+def test_map_payload_refuses_oversize():
+    import random
+    rng = random.Random(7)
+    big = [rng.randint(0, 100) for _ in range(600_000)]   # incompressible-ish
+    p, d = build_map_payload(_grid(w=1000, h=600, cells=big), prev_digest='keep')
+    assert p is None and d == 'keep'

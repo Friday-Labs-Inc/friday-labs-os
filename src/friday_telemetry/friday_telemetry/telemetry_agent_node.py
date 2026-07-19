@@ -20,10 +20,13 @@ ever touched from the executor thread.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import math
 import queue
 import time
+import zlib
 
 import cbor2
 import rclpy
@@ -32,7 +35,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 from lifecycle_msgs.msg import State as LCState
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
 from std_msgs.msg import Bool, Float32MultiArray
 from rclpy.duration import Duration
@@ -65,6 +68,9 @@ ENVPOD_NS = '/mark1/envpod'          # world-sense pod (SensorHub on the Zero W)
 PHONE_FIX_TOPIC = '/mark1/phone/fix'
 PHONE_ATTITUDE_TOPIC = '/mark1/phone/attitude'   # [tilt_deg, heading_deg, vib_rms]
 ATT_TLM_PERIOD_S = 5.0               # operator cadence; the bus stays 10 Hz
+MAP_TOPIC = '/map'                   # slam_toolbox occupancy grid (sim today)
+MAP_TLM_PERIOD_S = 10.0              # full snapshot, only when the map changed
+MAP_MAX_COMPRESSED = 256_000         # refuse to radio a monster (broker limit safety)
 ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
 ENV_FRESH_S = 30.0                   # cached value older than this is left out
 GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
@@ -94,6 +100,33 @@ def build_env_payload(entries: dict, now_ns: int, fresh_ns: int) -> dict | None:
     if not payload:
         return None
     return {'class': 'env', **payload, 'stamp': newest_ns / 1e9}
+
+
+def build_map_payload(grid: 'OccupancyGrid', prev_digest: str) -> tuple:
+    """OccupancyGrid -> (tlm/map payload, digest), or (None, prev_digest).
+
+    The whole known world in one envelope: zlib over the raw occupancy cells
+    (int8: -1 unknown / 0 free / 100 wall), base64 so every hop stays
+    JSON-clean. Publishes ONLY when the map actually changed (digest gate) —
+    a parked rover radios nothing. Oversized maps are refused, not truncated.
+    """
+    raw = bytes(b & 0xFF for b in grid.data)
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest == prev_digest:
+        return None, prev_digest
+    compressed = zlib.compress(raw, 6)
+    if len(compressed) > MAP_MAX_COMPRESSED:
+        return None, prev_digest
+    q = grid.info.origin.orientation
+    return ({'class': 'map',
+             'w': int(grid.info.width), 'h': int(grid.info.height),
+             'res': float(grid.info.resolution),
+             'ox': float(grid.info.origin.position.x),
+             'oy': float(grid.info.origin.position.y),
+             'oyaw': 2.0 * math.atan2(q.z, q.w),
+             'enc': 'zlib-b64',
+             'data': base64.b64encode(compressed).decode('ascii'),
+             'stamp': _t2s(grid.header.stamp)}, digest)
 
 
 def build_attitude_payload(values, stamp_s: float) -> dict | None:
@@ -181,6 +214,10 @@ class TelemetryAgent(ModuleAgent):
         self._last_gps_pub_ns = 0
         self._attitude_sub = None
         self._last_att_pub_ns = 0
+        self._map_sub = None
+        self._map_msg = None
+        self._map_digest = ''
+        self._map_timer = None
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -277,6 +314,14 @@ class TelemetryAgent(ModuleAgent):
             self._attitude_sub = self.create_subscription(
                 Float32MultiArray, PHONE_ATTITUDE_TOPIC, self._on_attitude,
                 qos.sensor_stream())
+            # slam publishes the grid latched (transient_local) at low rate
+            from rclpy.qos import (DurabilityPolicy, QoSProfile,
+                                   ReliabilityPolicy)
+            map_qos = QoSProfile(depth=1,
+                                 reliability=ReliabilityPolicy.RELIABLE,
+                                 durability=DurabilityPolicy.TRANSIENT_LOCAL)
+            self._map_sub = self.create_subscription(
+                OccupancyGrid, MAP_TOPIC, self._on_map, map_qos)
 
     def activate_hardware(self) -> None:
         try:
@@ -292,6 +337,7 @@ class TelemetryAgent(ModuleAgent):
         self._failover_timer = self.create_timer(FAILOVER_CHECK_S, self._check_failover)
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
+            self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
         self.get_logger().info(
             f'Command Center boundary up for rover {self._rover_id} '
             f'(operators allowlisted: {len(self._validator._keys)}) — monitoring Core authority')
@@ -306,6 +352,9 @@ class TelemetryAgent(ModuleAgent):
         if self._env_timer is not None:
             self.destroy_timer(self._env_timer)
             self._env_timer = None
+        if self._map_timer is not None:
+            self.destroy_timer(self._map_timer)
+            self._map_timer = None
         if self._auth_state == TLM_HOLDING:
             self._stand_down()
         if self._transport is not None:
@@ -350,6 +399,16 @@ class TelemetryAgent(ModuleAgent):
             int(ENV_FRESH_S * 1e9))
         if payload is not None:
             self._publish_signed_telemetry('tlm/env', payload)
+
+    def _on_map(self, msg: 'OccupancyGrid') -> None:
+        self._map_msg = msg                 # keep latest; the timer does the work
+
+    def _publish_map(self) -> None:
+        if self._map_msg is None:
+            return
+        payload, self._map_digest = build_map_payload(self._map_msg, self._map_digest)
+        if payload is not None:
+            self._publish_signed_telemetry('tlm/map', payload)
 
     def _on_attitude(self, msg: Float32MultiArray) -> None:
         now_ns = self.get_clock().now().nanoseconds
