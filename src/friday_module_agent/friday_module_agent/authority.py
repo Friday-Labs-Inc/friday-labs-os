@@ -43,3 +43,18 @@ def may_grant_return(*, requester_epoch: int, holder_epoch: int,
     whose view of the epoch is behind the holder's (force it to re-observe first).
     """
     return stable and requester_epoch >= holder_epoch
+
+
+STARVED_FACTOR = 5.0
+
+
+def starved(*, gap_s: float, period_s: float,
+            factor: float = STARVED_FACTOR) -> bool:
+    """True when a periodic liveness check ran far later than scheduled.
+
+    The check's own process was not being scheduled, so any "peer silent"
+    evidence accumulated across the gap is void — the peer may have been
+    talking the whole time. A starved Telemetry once declared a healthy Core
+    lost and self-promoted, quarantining the fleet (2026-07-19).
+    """
+    return gap_s >= period_s * factor

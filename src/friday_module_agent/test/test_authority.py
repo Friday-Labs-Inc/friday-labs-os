@@ -55,3 +55,22 @@ def test_reject_behind_requester():
 def test_reject_when_unstable():
     # never hand authority back mid-motion / mid-fault, even if caught up
     assert not authority.may_grant_return(requester_epoch=2, holder_epoch=2, stable=False)
+
+
+# ---- starved: self-starvation voids liveness evidence --------------------
+def test_on_schedule_check_not_starved():
+    assert not authority.starved(gap_s=0.1, period_s=0.1)
+
+
+def test_small_jitter_not_starved():
+    assert not authority.starved(gap_s=0.3, period_s=0.1)
+
+
+def test_long_stall_is_starved():
+    # a 0.5 s+ gap on a 0.1 s check: the process was not being scheduled, so
+    # "Core silent" evidence gathered across the gap must be discarded
+    assert authority.starved(gap_s=0.5, period_s=0.1)
+
+
+def test_first_check_gap_zero_not_starved():
+    assert not authority.starved(gap_s=0.0, period_s=0.1)

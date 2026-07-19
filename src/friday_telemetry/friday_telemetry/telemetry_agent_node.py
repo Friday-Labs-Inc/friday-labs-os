@@ -29,6 +29,7 @@ import time
 import zlib
 
 import cbor2
+import numpy as np
 import rclpy
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -41,6 +42,21 @@ from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumid
 from std_msgs.msg import Bool, Float32MultiArray
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
+import rclpy.time
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.node import Node as _RclNode
+from rclpy.parameter import Parameter as _Param
+# Heavy deps import at PROCESS start on purpose: importing them inside
+# configure/callbacks once cost minutes under the bring-up I/O storm,
+# starving the heartbeat and faking a CORE LOST (2026-07-19 incident).
+try:
+    from tf2_ros import Buffer, TransformListener
+except ImportError:                     # bench without tf2: dead-reckoned odom
+    Buffer = TransformListener = None
+try:
+    from sensor_msgs_py import point_cloud2
+except ImportError:                     # clouds skipped when helper is absent
+    point_cloud2 = None
 
 from friday_msgs.msg import (
     AuthorityLease,
@@ -162,7 +178,6 @@ def build_gps_payload(msg: 'NavSatFix') -> dict | None:
 
 def _tf_matrix(tf):
     """TransformStamped -> 4x4 homogeneous transform (numpy)."""
-    import numpy as np
     t = tf.transform.translation
     q = tf.transform.rotation
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -241,15 +256,12 @@ class TelemetryAgent(ModuleAgent):
         # wall-clock buffer evicts sim-time TF as ancient -> map frame vanishes.
         # tf_use_sim_time:=true (sim launch) aligns the TF node with the sim.
         self.declare_parameter('tf_use_sim_time', False)
-        from rclpy.node import Node as _RclNode
-        from rclpy.parameter import Parameter as _Param
         self._tf_node = _RclNode(
             'telemetry_tf',
             parameter_overrides=[_Param('use_sim_time', _Param.Type.BOOL,
                                         bool(self.get_parameter('tf_use_sim_time').value))])
         self._tf_buffer = None
         self._tf_listener = None
-        from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
         self._cloud_cbg = MutuallyExclusiveCallbackGroup()  # clouds serialize on ONE thread, never saturate the pool nor block the heartbeat/lifecycle
         self._cloud_subs = []
         self._voxels = {}               # {(i,j,k): last_frame_idx} in map frame
@@ -258,6 +270,11 @@ class TelemetryAgent(ModuleAgent):
         self._voxel_digest = 0
         self._last_cloud_ns = {}
         # --- split-brain failover state (Authority Lease Protocol) ---
+        # Authority evidence must never share a callback group with app work:
+        # a stalled configure once starved the pulse sub long enough to fake
+        # a CORE LOST and self-promote against a healthy Core (2026-07-19).
+        self._auth_cbg = MutuallyExclusiveCallbackGroup()
+        self._last_failover_check_ns = 0
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
         self._safety_seq = 0
@@ -287,11 +304,13 @@ class TelemetryAgent(ModuleAgent):
             operator_keys=self._load_operator_allowlist(),
             now=time.time, nonce_store=self._nonce_store)
         self._authority_sub = self.create_subscription(
-            AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable())
+            AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable(),
+            callback_group=self._auth_cbg)
         # failover: watch Core's safety pulse; on promotion, publish lease + pulse
         # as the holder and announce a clean hand-back via ReleaseAuthority.
         self._pulse_sub = self.create_subscription(
-            Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream())
+            Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream(),
+            callback_group=self._auth_cbg)
         self._authority_pub = self.create_lifecycle_publisher(
             AuthorityLease, AUTHORITY_TOPIC, qos.critical_reliable())
         self._safety_pulse_pub = self.create_lifecycle_publisher(
@@ -371,12 +390,11 @@ class TelemetryAgent(ModuleAgent):
             # commanded velocities, no feedback) and drifts unboundedly — fine
             # as a heartbeat of motion, wrong as a position on the SLAM map.
             # When TF carries map->base_link (SLAM running), radio THAT pose.
-            try:
-                from tf2_ros import Buffer, TransformListener
+            if Buffer is None:
+                self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
+            else:
                 self._tf_buffer = Buffer()
                 self._tf_listener = TransformListener(self._tf_buffer, self._tf_node)
-            except ImportError:
-                self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
 
     def activate_hardware(self) -> None:
         try:
@@ -389,7 +407,9 @@ class TelemetryAgent(ModuleAgent):
         self._last_pulse_ns = now_ns
         self._core_lease_expiry_s = 0.0
         self._core_seen = False
-        self._failover_timer = self.create_timer(FAILOVER_CHECK_S, self._check_failover)
+        self._last_failover_check_ns = 0
+        self._failover_timer = self.create_timer(
+            FAILOVER_CHECK_S, self._check_failover, callback_group=self._auth_cbg)
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
@@ -416,6 +436,7 @@ class TelemetryAgent(ModuleAgent):
             self.destroy_timer(self._voxel_timer)
             self._voxel_timer = None
         if self._auth_state == TLM_HOLDING:
+            self._announce_release('telemetry deactivated while holding')
             self._stand_down()
         if self._transport is not None:
             self._transport.disconnect()
@@ -471,9 +492,6 @@ class TelemetryAgent(ModuleAgent):
         if self._tf_buffer is None:
             return
         try:
-            import numpy as np
-            import rclpy.time
-            from sensor_msgs_py import point_cloud2
             tf = self._tf_buffer.lookup_transform(
                 'map', msg.header.frame_id, rclpy.time.Time())
         except Exception:  # noqa: BLE001 - no TF yet / deps: skip this cloud
@@ -550,7 +568,6 @@ class TelemetryAgent(ModuleAgent):
         if self._tf_buffer is None:
             return None
         try:
-            import rclpy.time
             tf = self._tf_buffer.lookup_transform(
                 'map', 'base_link', rclpy.time.Time())
         except Exception:  # noqa: BLE001 - no SLAM / TF not up yet
@@ -684,6 +701,16 @@ class TelemetryAgent(ModuleAgent):
         if self._auth_state != TLM_MONITORING or not self._core_seen:
             return
         now_ns = self.get_clock().now().nanoseconds
+        gap_s = ((now_ns - self._last_failover_check_ns) / 1e9
+                 if self._last_failover_check_ns else 0.0)
+        self._last_failover_check_ns = now_ns
+        if authority.starved(gap_s=gap_s, period_s=FAILOVER_CHECK_S):
+            # THIS process stalled between checks: the "Core silent" evidence
+            # was gathered while we weren't scheduled. Discard it rather than
+            # act on it — a starved Telemetry once self-promoted against a
+            # healthy Core and quarantined the fleet (2026-07-19).
+            self._last_pulse_ns = now_ns
+            return
         lease_expired = (now_ns * 1e-9) >= self._core_lease_expiry_s
         pulse_lost = (now_ns - self._last_pulse_ns) / 1e9 >= PULSE_LOST_S
         if authority.should_failover(lease_expired=lease_expired, pulse_lost=pulse_lost):
@@ -751,13 +778,21 @@ class TelemetryAgent(ModuleAgent):
         return response
 
     def _release_authority(self, new_epoch: int, requester: str) -> None:
+        self._announce_release(f'authority returned to {requester} at epoch {new_epoch}')
+        self._stand_down()
+
+    def _announce_release(self, reason: str) -> None:
+        # A holder must never stand down silently: consumers keep the epoch
+        # high-water and reject every lower lease, so an unannounced stand-down
+        # orphans the epoch and quarantines a lower-epoch Core forever. The
+        # release rides TRANSIENT_LOCAL, so even a Core that boots later still
+        # hears it and adopts a higher epoch.
         rel = ReleaseAuthority()
         rel.header = self._header()
         rel.releasing_module_id = self._module_id
         rel.epoch = self._epoch
-        rel.reason = f'authority returned to {requester} at epoch {new_epoch}'
+        rel.reason = reason
         self._release_pub.publish(rel)
-        self._stand_down()
 
     def _stand_down(self) -> None:
         for attr in ('_lease_timer', '_pulse_timer'):
