@@ -75,7 +75,10 @@ def generate_launch_description() -> LaunchDescription:
                              '/lidar3d/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
                              '/depthcam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
-                 arguments=['-topic', 'robot_description', '-name', 'mark1', '-z', '0.12'])
+                 arguments=['-topic', 'robot_description', '-name', 'mark1',
+                            '-x', LaunchConfiguration('spawn_x'),
+                            '-y', LaunchConfiguration('spawn_y'),
+                            '-z', LaunchConfiguration('spawn_z')])
 
     def spawner(name):
         return Node(package='controller_manager', executable='spawner', output='screen',
@@ -184,6 +187,9 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument('slam', default_value='false',
                               description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
+        DeclareLaunchArgument('spawn_x', default_value='0.0'),
+        DeclareLaunchArgument('spawn_y', default_value='0.0'),
+        DeclareLaunchArgument('spawn_z', default_value='0.12'),
         DeclareLaunchArgument('headless', default_value='true'),
         gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
     ])
