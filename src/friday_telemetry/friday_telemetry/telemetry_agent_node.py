@@ -474,17 +474,28 @@ class TelemetryAgent(ModuleAgent):
                 'map', msg.header.frame_id, rclpy.time.Time())
         except Exception:  # noqa: BLE001 - no TF yet / deps: skip this cloud
             return
-        pts = [(p[0], p[1], p[2]) for i, p in enumerate(point_cloud2.read_points(
-            msg, field_names=('x', 'y', 'z'), skip_nans=True))
-            if i % CLOUD_SUBSAMPLE == 0]
-        if not pts:
+        has_rgb = any(fld.name == 'rgb' for fld in msg.fields)
+        fields = ('x', 'y', 'z', 'rgb') if has_rgb else ('x', 'y', 'z')
+        try:
+            data = point_cloud2.read_points(
+                msg, field_names=fields, skip_nans=True)
+        except Exception:  # noqa: BLE001
             return
-        arr = np.array(pts, dtype=float)
+        data = data[::CLOUD_SUBSAMPLE]
+        if len(data) == 0:
+            return
+        arr = np.column_stack([data['x'], data['y'], data['z']]).astype(float)
         mat = _tf_matrix(tf)
-        homog = np.hstack([arr, np.ones((arr.shape[0], 1))])
-        world = (homog @ mat.T)[:, :3]
+        world = (np.hstack([arr, np.ones((arr.shape[0], 1))]) @ mat.T)[:, :3]
+        colors = None
+        if has_rgb:
+            rgb_i = np.asarray(data['rgb'], dtype=np.float32).view(np.uint32)
+            r = (rgb_i >> 16) & 0xFF; g = (rgb_i >> 8) & 0xFF; b = rgb_i & 0xFF
+            c = ((r & 0xE0) | ((g & 0xE0) >> 3) | ((b & 0xC0) >> 6)).astype(np.uint8)
+            colors = np.where(c == 0, 1, c).tolist()
         self._voxel_frame += 1
-        voxels.add_points(self._voxels, world, voxels.VOXEL_SIZE, self._voxel_frame)
+        voxels.add_points(self._voxels, world, voxels.VOXEL_SIZE,
+                          self._voxel_frame, colors=colors)
         voxels.evict_to_cap(self._voxels)
 
     def _publish_voxels(self) -> None:
