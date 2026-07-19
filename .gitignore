@@ -50,3 +50,4 @@ log/
 # Blender auto-save backups (the live .blend is tracked via LFS; backups are not)
 *.blend1
 *.blend2
+.sim-secrets/
