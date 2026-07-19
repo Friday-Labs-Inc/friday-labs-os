@@ -90,7 +90,11 @@ def generate_launch_description() -> LaunchDescription:
     # ---- the real OS ----
     core = Node(package='friday_core_hub', executable='core_hub', name='core_hub',
                 output='screen',
-                parameters=[{'managed_nodes': ['locomotion=MARK1-LOCO-001'], 'autostart_delay_s': 10.0}])
+                parameters=[{'managed_nodes': ['locomotion=MARK1-LOCO-001',
+                                               # telemetry only exists with tlm:=true;
+                                               # when absent the supervisor just waits.
+                                               'telemetry=MARK1-TLM-001'],
+                             'autostart_delay_s': 10.0}])
     loco = Node(package='friday_locomotion', executable='locomotion_agent', name='locomotion',
                 output='screen',
                 parameters=[{'wheel_cmd_topic': WHEEL_CMD, 'steer_cmd_topic': STEER_CMD,
@@ -149,13 +153,34 @@ def generate_launch_description() -> LaunchDescription:
     mesh_env = AppendEnvironmentVariable(
         'GZ_SIM_RESOURCE_PATH', os.path.join(pkg, '..'))
 
+    # --- sim -> FCC telemetry (opt-in with tlm:=true): the REAL telemetry
+    # agent, signing as the distinct rover identity MARK1-SIM-001 so the sim
+    # can never be mistaken for hardware. Secrets live in .sim-secrets/
+    # (gitignored) at the workspace root -> /ws inside the container.
+    tlm_agent = Node(
+        package='friday_telemetry', executable='telemetry_agent',
+        name='telemetry', output='screen',
+        parameters=[{'rover_id': 'MARK1-SIM-001',
+                     'mqtt_host': '192.168.1.6', 'mqtt_port': 8883,
+                     'mqtt_tls': True,
+                     'mqtt_ca': '/ws/.sim-secrets/ca.crt',
+                     'mqtt_cert': '/ws/.sim-secrets/sim-rover.crt',
+                     'mqtt_key': '/ws/.sim-secrets/sim-rover.key',
+                     'mqtt_client_id': 'MARK1-SIM-001',
+                     'rover_key_file': '/ws/.sim-secrets/rover_signing.key',
+                     'operators_file': '/ws/.sim-secrets/operators.json',
+                     'nonce_store': '/tmp/sim_tlm_nonce.json'}],
+        condition=IfCondition(LaunchConfiguration('tlm')))
+
     return LaunchDescription([
         mesh_env,
+        DeclareLaunchArgument('tlm', default_value='false',
+                              description='true = sign + radio sim telemetry to the FCC broker'),
         DeclareLaunchArgument('nav', default_value='false',
                               description='true = Nav2 autonomy (needs slam:=true)'),
         DeclareLaunchArgument('slam', default_value='false',
                               description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
         DeclareLaunchArgument('headless', default_value='true'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle, nav_adapter, *nav_nodes,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
     ])
