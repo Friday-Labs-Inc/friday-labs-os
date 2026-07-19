@@ -71,7 +71,9 @@ def generate_launch_description() -> LaunchDescription:
     bridge = Node(package='ros_gz_bridge', executable='parameter_bridge', output='screen',
                   arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
                              '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-                             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU'])
+                             '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                             '/lidar3d/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+                             '/depthcam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
                  arguments=['-topic', 'robot_description', '-name', 'mark1', '-z', '0.12'])
 
@@ -169,7 +171,8 @@ def generate_launch_description() -> LaunchDescription:
                      'mqtt_client_id': 'MARK1-SIM-001',
                      'rover_key_file': '/ws/.sim-secrets/rover_signing.key',
                      'operators_file': '/ws/.sim-secrets/operators.json',
-                     'nonce_store': '/tmp/sim_tlm_nonce.json'}],
+                     'nonce_store': '/tmp/sim_tlm_nonce.json',
+                     'tf_use_sim_time': True}],
         condition=IfCondition(LaunchConfiguration('tlm')))
 
     return LaunchDescription([
