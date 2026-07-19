@@ -502,7 +502,7 @@ class TelemetryAgent(ModuleAgent):
             rgb_i = np.asarray(data['rgb'], dtype=np.float32)[finite].view(np.uint32)
             r = (rgb_i >> 16) & 0xFF; g = (rgb_i >> 8) & 0xFF; b = rgb_i & 0xFF
             c = ((r & 0xE0) | ((g & 0xE0) >> 3) | ((b & 0xC0) >> 6)).astype(np.uint8)
-            colors = np.where(c == 0, 1, c).tolist()
+            colors = np.where(c == 0, 1, c)
         self._voxel_frame += 1
         voxels.add_points(self._voxels, world, voxels.VOXEL_SIZE,
                           self._voxel_frame, colors=colors)
@@ -833,13 +833,24 @@ class TelemetryAgent(ModuleAgent):
 def main(args=None):
     rclpy.init(args=args)
     node = TelemetryAgent()
+    from rclpy.executors import ExternalShutdownException
     executor = MultiThreadedExecutor()
     executor.add_node(node)
     executor.add_node(node._tf_node)       # dedicated TF clock (sim vs wall)
+    # Crash-proof spin (matches friday_module_agent.runner.spin_agent): rclpy
+    # lifecycle nodes RAISE on an invalid transition, and the supervisor's
+    # recovery can trigger one after a transient heartbeat miss. A plain
+    # spin() would let that RCLError kill the process (and ALL telemetry) —
+    # this stays alive and re-enters spin instead.
     try:
-        executor.spin()
-    except KeyboardInterrupt:
-        pass
+        while rclpy.ok():
+            try:
+                executor.spin()
+                break
+            except (KeyboardInterrupt, ExternalShutdownException):
+                break
+            except Exception as exc:  # noqa: BLE001 -- deliberate: a daemon degrades, never dies
+                node.get_logger().error(f'telemetry recovered from handler exception: {exc!r}')
     finally:
         node._tf_node.destroy_node()
         node.destroy_node()
