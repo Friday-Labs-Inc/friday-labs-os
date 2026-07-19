@@ -36,6 +36,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import OccupancyGrid, Odometry
+from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
 from std_msgs.msg import Bool, Float32MultiArray
 from rclpy.duration import Duration
@@ -53,7 +54,7 @@ from friday_module_agent import authority, qos
 from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
-from friday_telemetry import protocol
+from friday_telemetry import protocol, voxels
 from friday_telemetry.transport import MqttTransport
 
 AUTHORITY_TOPIC = '/mark1/system/authority'
@@ -71,6 +72,10 @@ ATT_TLM_PERIOD_S = 5.0               # operator cadence; the bus stays 10 Hz
 MAP_TOPIC = '/map'                   # slam_toolbox occupancy grid (sim today)
 MAP_TLM_PERIOD_S = 10.0              # full snapshot, only when the map changed
 MAP_MAX_COMPRESSED = 256_000         # refuse to radio a monster (broker limit safety)
+CLOUD_TOPICS = ('/lidar3d/points', '/depthcam/points')   # the two 3D sensors
+CLOUD_MIN_PERIOD_S = 0.5             # process each sensor at most 2 Hz (CPU guard)
+CLOUD_SUBSAMPLE = 3                  # keep 1 in N points before transform (CPU guard)
+VOXEL_TLM_PERIOD_S = 5.0             # stream the fused world every 5 s (on change)
 ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
 ENV_FRESH_S = 30.0                   # cached value older than this is left out
 GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
@@ -155,6 +160,19 @@ def build_gps_payload(msg: 'NavSatFix') -> dict | None:
             'alt_m': msg.altitude, 'fix': 'FIX', 'stamp': _t2s(msg.header.stamp)}
 
 
+def _tf_matrix(tf):
+    """TransformStamped -> 4x4 homogeneous transform (numpy)."""
+    import numpy as np
+    t = tf.transform.translation
+    q = tf.transform.rotation
+    x, y, z, w = q.x, q.y, q.z, q.w
+    return np.array([
+        [1 - 2*(y*y+z*z), 2*(x*y-z*w),     2*(x*z+y*w),     t.x],
+        [2*(x*y+z*w),     1 - 2*(x*x+z*z), 2*(y*z-x*w),     t.y],
+        [2*(x*z-y*w),     2*(y*z+x*w),     1 - 2*(x*x+y*y), t.z],
+        [0, 0, 0, 1]])
+
+
 def _t2s(t) -> float:
     """builtin_interfaces/Time -> unix seconds (0 if unset)."""
     return t.sec + t.nanosec * 1e-9
@@ -218,8 +236,25 @@ class TelemetryAgent(ModuleAgent):
         self._map_msg = None
         self._map_digest = ''
         self._map_timer = None
+        # TF runs on its OWN node/clock: in sim the transforms are stamped in
+        # sim time, but this agent keeps WALL clock (envelope expiry). A
+        # wall-clock buffer evicts sim-time TF as ancient -> map frame vanishes.
+        # tf_use_sim_time:=true (sim launch) aligns the TF node with the sim.
+        self.declare_parameter('tf_use_sim_time', False)
+        from rclpy.node import Node as _RclNode
+        from rclpy.parameter import Parameter as _Param
+        self._tf_node = _RclNode(
+            'telemetry_tf',
+            parameter_overrides=[_Param('use_sim_time', _Param.Type.BOOL,
+                                        bool(self.get_parameter('tf_use_sim_time').value))])
         self._tf_buffer = None
         self._tf_listener = None
+        self._cloud_subs = []
+        self._voxels = {}               # {(i,j,k): last_frame_idx} in map frame
+        self._voxel_frame = 0
+        self._voxel_timer = None
+        self._voxel_digest = 0
+        self._last_cloud_ns = {}
         # --- split-brain failover state (Authority Lease Protocol) ---
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
@@ -324,6 +359,11 @@ class TelemetryAgent(ModuleAgent):
                                  durability=DurabilityPolicy.TRANSIENT_LOCAL)
             self._map_sub = self.create_subscription(
                 OccupancyGrid, MAP_TOPIC, self._on_map, map_qos)
+            # 3D perception: both point clouds -> fused map-frame voxel world
+            for topic in CLOUD_TOPICS:
+                self._cloud_subs.append(self.create_subscription(
+                    PointCloud2, topic,
+                    lambda msg, t=topic: self._on_cloud(msg, t), qos.sensor_stream()))
             # map-frame pose: the locomotion odom is DEAD-RECKONED (integrated
             # commanded velocities, no feedback) and drifts unboundedly — fine
             # as a heartbeat of motion, wrong as a position on the SLAM map.
@@ -331,7 +371,7 @@ class TelemetryAgent(ModuleAgent):
             try:
                 from tf2_ros import Buffer, TransformListener
                 self._tf_buffer = Buffer()
-                self._tf_listener = TransformListener(self._tf_buffer, self)
+                self._tf_listener = TransformListener(self._tf_buffer, self._tf_node)
             except ImportError:
                 self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
 
@@ -350,6 +390,7 @@ class TelemetryAgent(ModuleAgent):
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
+            self._voxel_timer = self.create_timer(VOXEL_TLM_PERIOD_S, self._publish_voxels)
         self.get_logger().info(
             f'Command Center boundary up for rover {self._rover_id} '
             f'(operators allowlisted: {len(self._validator._keys)}) — monitoring Core authority')
@@ -367,6 +408,9 @@ class TelemetryAgent(ModuleAgent):
         if self._map_timer is not None:
             self.destroy_timer(self._map_timer)
             self._map_timer = None
+        if self._voxel_timer is not None:
+            self.destroy_timer(self._voxel_timer)
+            self._voxel_timer = None
         if self._auth_state == TLM_HOLDING:
             self._stand_down()
         if self._transport is not None:
@@ -414,6 +458,45 @@ class TelemetryAgent(ModuleAgent):
 
     def _on_map(self, msg: 'OccupancyGrid') -> None:
         self._map_msg = msg                 # keep latest; the timer does the work
+
+    def _on_cloud(self, msg: 'PointCloud2', topic: str) -> None:
+        now_ns = self.get_clock().now().nanoseconds
+        if now_ns - self._last_cloud_ns.get(topic, 0) < int(CLOUD_MIN_PERIOD_S * 1e9):
+            return                          # rate-limit per sensor (CPU guard)
+        self._last_cloud_ns[topic] = now_ns
+        if self._tf_buffer is None:
+            return
+        try:
+            import numpy as np
+            import rclpy.time
+            from sensor_msgs_py import point_cloud2
+            tf = self._tf_buffer.lookup_transform(
+                'map', msg.header.frame_id, rclpy.time.Time())
+        except Exception:  # noqa: BLE001 - no TF yet / deps: skip this cloud
+            return
+        pts = [(p[0], p[1], p[2]) for i, p in enumerate(point_cloud2.read_points(
+            msg, field_names=('x', 'y', 'z'), skip_nans=True))
+            if i % CLOUD_SUBSAMPLE == 0]
+        if not pts:
+            return
+        arr = np.array(pts, dtype=float)
+        mat = _tf_matrix(tf)
+        homog = np.hstack([arr, np.ones((arr.shape[0], 1))])
+        world = (homog @ mat.T)[:, :3]
+        self._voxel_frame += 1
+        voxels.add_points(self._voxels, world, voxels.VOXEL_SIZE, self._voxel_frame)
+        voxels.evict_to_cap(self._voxels)
+
+    def _publish_voxels(self) -> None:
+        if not self._voxels:
+            return
+        if len(self._voxels) == self._voxel_digest:
+            return                          # no growth since last send
+        self._voxel_digest = len(self._voxels)
+        payload = voxels.build_voxel_payload(
+            self._voxels, voxels.VOXEL_SIZE, time.time())
+        if payload is not None:
+            self._publish_signed_telemetry('tlm/voxel', payload)
 
     def _publish_map(self) -> None:
         if self._map_msg is None:
@@ -731,11 +814,13 @@ def main(args=None):
     node = TelemetryAgent()
     executor = MultiThreadedExecutor()
     executor.add_node(node)
+    executor.add_node(node._tf_node)       # dedicated TF clock (sim vs wall)
     try:
         executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
+        node._tf_node.destroy_node()
         node.destroy_node()
         rclpy.try_shutdown()
 
