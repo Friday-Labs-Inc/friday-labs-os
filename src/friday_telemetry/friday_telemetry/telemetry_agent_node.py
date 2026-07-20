@@ -39,7 +39,7 @@ from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
-from std_msgs.msg import Bool, Float32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray, String
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 import rclpy.time
@@ -105,6 +105,7 @@ CLOUD_MIN_PERIOD_S = 0.5             # process each sensor at most 2 Hz (CPU gua
 CLOUD_SUBSAMPLE = 3                  # keep 1 in N points before transform (CPU guard)
 VOXEL_TLM_PERIOD_S = 5.0             # stream the fused world every 5 s (on change)
 ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
+TERRAIN_TLM_PERIOD_S = 1.0           # terrain classifier summary cadence (1 Hz)
 ENV_FRESH_S = 30.0                   # cached value older than this is left out
 GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
 LOCO_FAULT_TOPIC = '/mark1/locomotion/fault'
@@ -255,6 +256,11 @@ class TelemetryAgent(ModuleAgent):
         self._env_entries = {}             # field -> (value, stamp_ns)
         self._env_subs = []
         self._env_timer = None
+        # Terrain intelligence relay: /terrain/summary -> tlm/terrain (1 Hz)
+        self._terrain_timer = None
+        self._terrain_latest_json = None
+        self.create_subscription(String, '/terrain/summary',
+                                 self._on_terrain_summary, 1)
         self._fix_sub = None
         self._last_gps_pub_ns = 0
         self._attitude_sub = None
@@ -445,6 +451,7 @@ class TelemetryAgent(ModuleAgent):
             FAILOVER_CHECK_S, self._check_failover, callback_group=self._auth_cbg)
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
+            self._terrain_timer = self.create_timer(TERRAIN_TLM_PERIOD_S, self._publish_terrain)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
             self._voxel_timer = self.create_timer(
                 VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
@@ -466,6 +473,9 @@ class TelemetryAgent(ModuleAgent):
         if self._env_timer is not None:
             self.destroy_timer(self._env_timer)
             self._env_timer = None
+        if self._terrain_timer is not None:
+            self.destroy_timer(self._terrain_timer)
+            self._terrain_timer = None
         if self._map_timer is not None:
             self.destroy_timer(self._map_timer)
             self._map_timer = None
@@ -518,6 +528,27 @@ class TelemetryAgent(ModuleAgent):
             self.get_logger().error(
                 f'cannot load rover_key_file {path}: {type(exc).__name__}')
             return None
+
+    # ---- terrain intelligence relay ---------------------------------------
+    def _on_terrain_summary(self, msg) -> None:
+        self._terrain_latest_json = msg.data
+
+    def _publish_terrain(self) -> None:
+        """Sign + emit tlm/terrain with the latest terrain classifier summary.
+
+        The classifier already produces a compact JSON on /terrain/summary
+        (~200 bytes: class histogram + coverage). We just forward it through
+        the signed envelope so the FCC can trust and record it.
+        """
+        raw = self._terrain_latest_json
+        if not raw:
+            return
+        try:
+            payload = json.loads(raw)
+        except (ValueError, TypeError):
+            return
+        payload['class'] = 'terrain'
+        self._publish_signed_telemetry('tlm/terrain', payload)
 
     def _publish_env(self) -> None:
         payload = build_env_payload(
