@@ -88,7 +88,7 @@ def generate_launch_description() -> LaunchDescription:
     wheels = spawner('wheel_velocity_controller')
     steer = spawner('steer_position_controller')
     load_jsb = RegisterEventHandler(
-        OnProcessExit(target_action=spawn, on_exit=[TimerAction(period=2.0, actions=[jsb])]))
+        OnProcessExit(target_action=spawn, on_exit=[TimerAction(period=20.0, actions=[jsb])]))
     load_ctrls = RegisterEventHandler(
         OnProcessExit(target_action=jsb, on_exit=[wheels, steer]))
 

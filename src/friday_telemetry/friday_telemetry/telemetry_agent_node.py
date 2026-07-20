@@ -529,9 +529,9 @@ class TelemetryAgent(ModuleAgent):
     def _publish_voxels(self) -> None:
         if not self._voxels:
             return
-        if len(self._voxels) == self._voxel_digest:
-            return                          # no growth since last send
-        self._voxel_digest = len(self._voxels)
+        if self._voxel_frame == self._voxel_digest:
+            return                          # no new frames since last send
+        self._voxel_digest = self._voxel_frame
         payload = voxels.build_voxel_payload(
             self._voxels, voxels.VOXEL_SIZE, time.time())
         if payload is not None:

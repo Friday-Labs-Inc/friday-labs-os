@@ -60,5 +60,55 @@
       <longitude_deg>-121.998878727967</longitude_deg>
       <elevation>38</elevation>
     </spherical_coordinates>
+
+    <!-- Nav-reference markers: 4 columns at 10 m on cardinal axes around
+         the spawn point (0,0).  The 2D lidar (12 m range) sees them from
+         every patrol corner; SLAM maps them; Nav2 plans around them.
+         Boxes are 3 m tall centred at z=0.5 so they straddle any terrain
+         height variation and are always visible to a lidar at rover height. -->
+    <model name="nav_marker_n">
+      <static>true</static>
+      <pose>0 10 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.5 0.5 3.0</size></box></geometry></collision>
+        <visual name="vis">
+          <geometry><box><size>0.5 0.5 3.0</size></box></geometry>
+          <material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="nav_marker_s">
+      <static>true</static>
+      <pose>0 -10 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.5 0.5 3.0</size></box></geometry></collision>
+        <visual name="vis">
+          <geometry><box><size>0.5 0.5 3.0</size></box></geometry>
+          <material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="nav_marker_e">
+      <static>true</static>
+      <pose>10 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.5 0.5 3.0</size></box></geometry></collision>
+        <visual name="vis">
+          <geometry><box><size>0.5 0.5 3.0</size></box></geometry>
+          <material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="nav_marker_w">
+      <static>true</static>
+      <pose>-10 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.5 0.5 3.0</size></box></geometry></collision>
+        <visual name="vis">
+          <geometry><box><size>0.5 0.5 3.0</size></box></geometry>
+          <material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
   </world>
 </sdf>
