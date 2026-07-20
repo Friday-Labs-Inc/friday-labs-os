@@ -39,7 +39,7 @@ from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
-from std_msgs.msg import Bool, Float32MultiArray, String
+from std_msgs.msg import Bool, Float32MultiArray, Int8, String
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 import rclpy.time
@@ -309,6 +309,12 @@ class TelemetryAgent(ModuleAgent):
         self._failover_timer = None
         self._lease_timer = None
         self._pulse_timer = None
+        # --- autonomy mode state (enforced via /mark1/system/autonomy_mode) ---
+        self._autonomy_level = 0           # default: L0 Manual (safest / most restrictive)
+        self._mission_profile = 'Bench'
+        self._brain = 'Rules'
+        self._autonomy_mode_pub = None
+        self._autonomy_timer = None
         # --- mission executor (dedicated callback group — never shares vitals) ---
         # Respects the same isolation rules as the authority groups (2308629):
         # mission work in its own MECE group so it cannot starve the heartbeat.
@@ -324,10 +330,19 @@ class TelemetryAgent(ModuleAgent):
 
     # ---- ModuleAgent hooks -------------------------------------------------
     def configure_hardware(self) -> None:
+        from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
         self._motion_pub = self.create_lifecycle_publisher(
             MotionCommand, LOCOMOTION_CMD_TOPIC, qos.critical_reliable())
         self._fault_pub = self.create_lifecycle_publisher(
             FaultReport, FAULT_TOPIC, qos.state_default())
+        # Latched autonomy-level topic: reliable + transient_local + keep_last 1.
+        # Any node that joins late (e.g. nav_motion_adapter restart) still gets
+        # the current level immediately — safe default 0 is published on activate.
+        _autonomy_qos = QoSProfile(depth=1,
+                                   reliability=ReliabilityPolicy.RELIABLE,
+                                   durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self._autonomy_mode_pub = self.create_lifecycle_publisher(
+            Int8, '/mark1/system/autonomy_mode', _autonomy_qos)
         self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
         self._validator = protocol.CommandValidator(
             rover_id=self._rover_id,
@@ -449,9 +464,14 @@ class TelemetryAgent(ModuleAgent):
         self._last_failover_check_ns = 0
         self._failover_timer = self.create_timer(
             FAILOVER_CHECK_S, self._check_failover, callback_group=self._auth_cbg)
+        # Publish default L0 so the gate has a value before any cmd/mode arrives.
+        _init_mode = Int8()
+        _init_mode.data = 0
+        self._autonomy_mode_pub.publish(_init_mode)
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
             self._terrain_timer = self.create_timer(TERRAIN_TLM_PERIOD_S, self._publish_terrain)
+            self._autonomy_timer = self.create_timer(1.0, self._publish_autonomy)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
             self._voxel_timer = self.create_timer(
                 VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
@@ -476,6 +496,9 @@ class TelemetryAgent(ModuleAgent):
         if self._terrain_timer is not None:
             self.destroy_timer(self._terrain_timer)
             self._terrain_timer = None
+        if self._autonomy_timer is not None:
+            self.destroy_timer(self._autonomy_timer)
+            self._autonomy_timer = None
         if self._map_timer is not None:
             self.destroy_timer(self._map_timer)
             self._map_timer = None
@@ -528,6 +551,44 @@ class TelemetryAgent(ModuleAgent):
             self.get_logger().error(
                 f'cannot load rover_key_file {path}: {type(exc).__name__}')
             return None
+
+    # ---- autonomy mode enforcement ----------------------------------------
+    def _apply_mode(self, envelope: dict) -> None:
+        """Apply a validated cmd/mode envelope: update state, publish Int8, emit tlm."""
+        p = envelope['payload']
+        level = p.get('autonomy_level', 0)
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            self.get_logger().warning(f'cmd/mode: autonomy_level not an int ({level!r}); dropping')
+            return
+        if level not in (0, 1, 2, 3):
+            self.get_logger().warning(f'cmd/mode: autonomy_level {level} not in 0..3; dropping')
+            return
+        self._autonomy_level = level
+        self._mission_profile = str(p.get('mission_profile', self._mission_profile))
+        self._brain = str(p.get('brain', self._brain))
+        msg = Int8()
+        msg.data = level
+        self._autonomy_mode_pub.publish(msg)
+        self.get_logger().info(
+            f'autonomy mode SET: level={level} profile={self._mission_profile} '
+            f'brain={self._brain}')
+        self._publish_signed_telemetry('tlm/autonomy', self._autonomy_payload())
+
+    def _publish_autonomy(self) -> None:
+        """1 Hz timer: sign and emit the enforced autonomy state to the FCC."""
+        self._publish_signed_telemetry('tlm/autonomy', self._autonomy_payload())
+
+    def _autonomy_payload(self) -> dict:
+        return {
+            'class': 'autonomy',
+            'autonomy_level': self._autonomy_level,
+            'mission_profile': self._mission_profile,
+            'brain': self._brain,
+            'enforced': True,
+            'stamp': time.time(),
+        }
 
     # ---- terrain intelligence relay ---------------------------------------
     def _on_terrain_summary(self, msg) -> None:
@@ -725,6 +786,9 @@ class TelemetryAgent(ModuleAgent):
     def _dispatch_command(self, cmd_class: str, envelope: dict) -> None:
         if cmd_class == 'mission':
             self._dispatch_mission(envelope)
+            return
+        if cmd_class == 'mode':
+            self._apply_mode(envelope)
             return
         if cmd_class != 'motion':
             self.get_logger().warning(f'unknown command class "{cmd_class}"; dropping')
