@@ -900,6 +900,20 @@ class TelemetryAgent(ModuleAgent):
         if not self._mission_nav_client.server_is_ready():
             return    # Nav2 not up yet — retry next tick
 
+        # L2 Supervised: pause for operator approval before EACH waypoint goal.
+        # The rover plans + executes, but the operator approves key decisions.
+        # motion_allowed(2) is True at the wheel gate, so approval controls the
+        # GOAL, not low-level motion. Approve/deny arrives as a signed command.
+        if self._autonomy_level == 2 and ms.get('approved_wp', -1) < i:
+            if not ms.get('awaiting_approval'):
+                ms['awaiting_approval'] = True
+                ms['pending_wp'] = i
+                self.get_logger().info(
+                    f'mission {ms["mission_id"]}: wp {i} AWAITING OPERATOR '
+                    f'APPROVAL (L2 Supervised)')
+                self._publish_mission_progress()
+            return    # hold until an approve/deny command arrives
+
         x, y = waypoints[i]
         self._mission_send_nav_goal(x, y)
         self._mission_goal_sent = True
@@ -963,6 +977,28 @@ class TelemetryAgent(ModuleAgent):
                 self.get_logger().warning(
                     f'abort for {mission_id} but active mission is '
                     f'{self._mission_state["mission_id"] if self._mission_state else "none"}')
+        elif op in ('approve', 'deny'):
+            ms = self._mission_state
+            if ms is None or ms['mission_id'] != mission_id:
+                self.get_logger().warning(
+                    f'{op} for {mission_id} but no matching active mission')
+                return
+            wp = int(cmd.get('waypoint_i', ms.get('pending_wp', ms['waypoint_i'])))
+            ms['awaiting_approval'] = False
+            if op == 'approve':
+                ms['approved_wp'] = wp          # unblocks _mission_advance for wp
+                self.get_logger().info(
+                    f'mission {mission_id}: wp {wp} APPROVED by operator')
+            else:  # deny -> skip this waypoint, ask again for the next
+                if wp == ms['waypoint_i']:
+                    ms['waypoint_i'] += 1
+                    ms.setdefault('skipped', 0)
+                    ms['skipped'] += 1
+                self.get_logger().info(
+                    f'mission {mission_id}: wp {wp} DENIED by operator — skipping')
+            self._mission_goal_sent = False
+            self._publish_mission_progress()
+
         else:
             self.get_logger().warning(f'unknown mission op "{op}"; ignoring')
 
@@ -1075,11 +1111,13 @@ class TelemetryAgent(ModuleAgent):
         payload = {
             'class': 'mission',
             'mission_id': ms['mission_id'],
-            'state': ms['state'],
+            'state': 'awaiting_approval' if ms.get('awaiting_approval') else ms['state'],
             'waypoint_i': ms['waypoint_i'],
             'waypoint_n': ms['waypoint_n'],
             'coverage_pct': round(ms['coverage_pct'], 1),
             'skipped': ms.get('skipped', 0),
+            'awaiting_approval': bool(ms.get('awaiting_approval')),
+            'pending_wp': ms.get('pending_wp', -1),
             'stamp': time.time(),
         }
         self._publish_signed_telemetry('tlm/mission', payload)
