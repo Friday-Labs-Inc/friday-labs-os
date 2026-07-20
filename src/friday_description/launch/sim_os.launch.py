@@ -73,7 +73,8 @@ def generate_launch_description() -> LaunchDescription:
                              '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
                              '/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
                              '/lidar3d/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-                             '/depthcam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked'])
+                             '/depthcam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+                             '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
                  arguments=['-topic', 'robot_description', '-name', 'mark1',
                             '-x', LaunchConfiguration('spawn_x'),
@@ -113,6 +114,20 @@ def generate_launch_description() -> LaunchDescription:
         package='robot_localization', executable='ekf_node',
         name='ekf_filter_node', output='screen',
         parameters=[os.path.join(pkg, 'config', 'ekf.yaml')])
+
+    # --- GPS global anchor: navsat_transform_node (opt-in with gps:=true, default true).
+    # Subscribes /gps/fix + /odometry/filtered + /imu, broadcasts utm->map TF so
+    # a lat/lon can be converted to the map frame. Keeps the local EKF (ekf.yaml)
+    # intact: this is an additive anchor layer only.
+    gps_cond = IfCondition(LaunchConfiguration('gps'))
+    navsat_yaml = os.path.join(pkg, 'config', 'navsat_transform.yaml')
+    navsat = Node(
+        package='robot_localization', executable='navsat_transform_node',
+        name='navsat_transform', output='screen',
+        parameters=[navsat_yaml],
+        remappings=[('imu', '/imu'), ('gps/fix', '/gps/fix'),
+                    ('odometry/filtered', '/odometry/filtered')],
+        condition=gps_cond)
 
     # --- Phase 2 mapping: slam_toolbox (opt-in with slam:=true) ---
     slam = Node(
@@ -186,10 +201,13 @@ def generate_launch_description() -> LaunchDescription:
                               description='true = Nav2 autonomy (needs slam:=true)'),
         DeclareLaunchArgument('slam', default_value='false',
                               description='true = run slam_toolbox mapping'),
+        DeclareLaunchArgument('gps', default_value='true',
+                              description='true = navsat_transform_node (GPS->map anchor)'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
         DeclareLaunchArgument('spawn_x', default_value='0.0'),
         DeclareLaunchArgument('spawn_y', default_value='0.0'),
         DeclareLaunchArgument('spawn_z', default_value='0.12'),
         DeclareLaunchArgument('headless', default_value='true'),
-        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco , wheel_odom, ekf, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
+        gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco,
+        wheel_odom, ekf, navsat, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
     ])

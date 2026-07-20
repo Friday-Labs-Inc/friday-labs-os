@@ -246,4 +246,32 @@
       <always_on>true</always_on><visualize>false</visualize>
     </sensor>
   </gazebo>
+
+  <!-- ===== GPS / NavSat (sim stand-in for the rover's GPS module) =====
+       Baylands world carries real WGS84 spherical coordinates (lat 37.41 N,
+       lon -121.99 W) so the NavSat sensor reports genuine lat/lon for this
+       location. The bridge maps gz topic /gps/fix -> ROS /gps/fix (NavSatFix)
+       so the telemetry agent can forward it to the FCC and navsat_transform
+       can anchor the map frame to the real-world position. -->
+  <link name="gps_link">
+    <inertial><mass value="0.02"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="gps_joint" type="fixed">
+    <parent link="base_link"/><child link="gps_link"/>
+    <origin xyz="0 0 0.40" rpy="0 0 0"/>
+  </joint>
+  <gazebo reference="gps_link">
+    <sensor name="gps" type="navsat">
+      <topic>gps/fix</topic>
+      <update_rate>1</update_rate>
+      <always_on>true</always_on>
+      <navsat>
+        <position_sensing>
+          <horizontal><noise type="gaussian"><mean>0</mean><stddev>0.0001</stddev></noise></horizontal>
+          <vertical><noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev></noise></vertical>
+        </position_sensing>
+      </navsat>
+    </sensor>
+  </gazebo>
 </robot>

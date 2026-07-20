@@ -88,6 +88,13 @@ global_costmap:
       robot_radius: 0.35
       resolution: 0.05
       track_unknown_space: true
+      # Rolling window (60 m × 60 m) so planner accepts goals up to 30 m from
+      # the rover regardless of SLAM map extent.  The static_layer still loads
+      # SLAM obstacle data within the window; allow_unknown=true in the planner
+      # lets it route through unseen space.
+      rolling_window: true
+      width: 60.0
+      height: 60.0
       plugins: [static_layer, obstacle_layer, inflation_layer]
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer

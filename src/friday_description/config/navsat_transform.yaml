@@ -1,0 +1,21 @@
+# robot_localization navsat_transform_node — global GPS anchor layer.
+# Converts /gps/fix (NavSatFix) + /odometry/filtered (EKF) + /imu (Imu)
+# into an odometry/gps stream in the UTM/ENU frame and broadcasts the
+# utm->map TF so a lat/lon can be converted to the map frame and back.
+# The local EKF (ekf.yaml) stays unchanged: this node is a parallel,
+# additive layer that only anchors the map frame to the real world.
+navsat_transform:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 10.0
+    delay: 3.0
+    # Bay Area magnetic declination ~13.3° East (NOAA 2026)
+    magnetic_declination_radians: 0.2320
+    # ENU yaw offset: ROS convention (East=0) vs compass (North=0)
+    yaw_offset: 1.5707963
+    zero_altitude: true
+    publish_filtered_gps: true
+    use_odometry_yaw: false
+    wait_for_datum: false
+    broadcast_utm_transform: true
+    broadcast_utm_transform_as_parent_frame: false
