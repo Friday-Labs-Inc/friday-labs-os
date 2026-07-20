@@ -102,9 +102,12 @@ global_costmap:
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
-        # Two sources: mast lidar (walls, distant obstacles) + terrain
-        # classifier (surface un-traversability from the ground scan).
-        observation_sources: scan terrain
+        # Mast lidar only. Terrain intelligence (friday_terrain) still runs and
+        # streams to the deck as OBSERVABILITY, but is NOT fed here as hard
+        # obstacles: a binary lethal mark makes Nav2 refuse plans on natural
+        # outdoor slopes. Terrain-as-cost belongs in a gradient costmap layer
+        # (nav2_costmap_2d::Layer plugin) — tracked as a separate work block.
+        observation_sources: scan
         scan:
           topic: /scan
           data_type: LaserScan
@@ -113,15 +116,6 @@ global_costmap:
           marking: true
           raytrace_max_range: 12.0
           obstacle_max_range: 10.0
-        terrain:
-          topic: /terrain/obstacle_points
-          data_type: PointCloud2
-          max_obstacle_height: 2.0
-          min_obstacle_height: 0.05
-          clearing: true
-          marking: true
-          raytrace_max_range: 3.5
-          obstacle_max_range: 3.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0

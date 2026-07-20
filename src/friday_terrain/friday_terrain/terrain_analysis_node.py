@@ -46,12 +46,12 @@ CELL_M = 0.10
 GRID_W = int(GRID_SIZE_M / CELL_M)
 
 STEP_ROUGH_M = 0.03
-STEP_LETHAL_M = WHEEL_RADIUS_M
+STEP_LETHAL_M = 2 * WHEEL_RADIUS_M  # 13 cm curb-height; outdoor grass/pebbles exceed 1x radius routinely
 CLIFF_M = -0.50                    # true precipice: chassis-bottom drops > 50 cm (slopes classified by SLOPE_ rules)
 
 SLOPE_GENTLE = math.radians(10)
 SLOPE_STEEP = math.radians(20)
-SLOPE_LETHAL = math.radians(30)
+SLOPE_LETHAL = math.radians(40)  # was 30; Baylands hillsides are traversable, not lethal
 
 COST_FREE = 0
 COST_GENTLE = 40

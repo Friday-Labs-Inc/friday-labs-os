@@ -34,7 +34,7 @@ def test_unseen_cells_are_unknown():
 
 def test_step_larger_than_wheel_is_lethal():
     min_z, max_z, count = _seen_grid()
-    max_z[3, 3] = WHEEL_RADIUS_M + 0.01  # 7.7 cm step
+    max_z[3, 3] = 2 * WHEEL_RADIUS_M + 0.01  # 15 cm step
     g = classify_grid(min_z, max_z, count, cell_m=0.10)
     assert g.classes[3, 3] == CLS_LETHAL_STEP
     assert g.cost[3, 3] == COST_LETHAL
@@ -70,13 +70,13 @@ def test_steep_slope_is_steep():
 
 
 def test_lethal_slope_over_30deg():
-    # 35 deg slope: dz/dx = tan(35 deg) ≈ 0.700
+    # 45 deg slope: dz/dx = tan(45 deg) = 1.000
     min_z = np.zeros((6, 6), dtype=np.float32)
     max_z = np.zeros((6, 6), dtype=np.float32)
     count = np.ones((6, 6), dtype=np.int32)
     for i in range(6):
         for j in range(6):
-            min_z[i, j] = 0.700 * (j * 0.10)
+            min_z[i, j] = 1.000 * (j * 0.10)
             max_z[i, j] = min_z[i, j]
     g = classify_grid(min_z, max_z, count, cell_m=0.10)
     interior = g.classes[1:-1, 1:-1]
@@ -112,7 +112,7 @@ def test_lethal_priority_over_slope():
         for j in range(6):
             min_z[i, j] = 0.5 * (j * 0.10)  # steep slope everywhere
             max_z[i, j] = min_z[i, j]
-    max_z[2, 2] += 0.10  # big step at (2,2)
+    max_z[2, 2] += 0.20  # big step (> 2x wheel radius) at (2,2)
     g = classify_grid(min_z, max_z, count, cell_m=0.10)
     assert g.classes[2, 2] == CLS_LETHAL_STEP
 
