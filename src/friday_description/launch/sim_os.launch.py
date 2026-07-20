@@ -122,6 +122,15 @@ def generate_launch_description() -> LaunchDescription:
     # intact: this is an additive anchor layer only.
     gps_cond = IfCondition(LaunchConfiguration('gps'))
     navsat_yaml = os.path.join(pkg, 'config', 'navsat_transform.yaml')
+    # --- terrain intelligence: ground-scan classifier + Nav2 traversability
+    #     Reads /ground_scan/points, publishes /terrain/costmap that Nav2 uses
+    #     as an obstacle_layer source. Opt-in with terrain:=true.
+    terrain_cond = IfCondition(LaunchConfiguration('terrain'))
+    terrain = Node(
+        package='friday_terrain', executable='terrain_analysis',
+        name='terrain_analysis', output='screen',
+        condition=terrain_cond)
+
     navsat = Node(
         package='robot_localization', executable='navsat_transform_node',
         name='navsat_transform', output='screen',
@@ -204,11 +213,13 @@ def generate_launch_description() -> LaunchDescription:
                               description='true = run slam_toolbox mapping'),
         DeclareLaunchArgument('gps', default_value='true',
                               description='true = navsat_transform_node (GPS->map anchor)'),
+        DeclareLaunchArgument('terrain', default_value='true',
+                              description='true = terrain_analysis (ground-scan classifier)'),
         DeclareLaunchArgument('world', default_value='empty_ground.sdf'),
         DeclareLaunchArgument('spawn_x', default_value='0.0'),
         DeclareLaunchArgument('spawn_y', default_value='0.0'),
         DeclareLaunchArgument('spawn_z', default_value='0.12'),
         DeclareLaunchArgument('headless', default_value='true'),
         gz_headless, gz_gui, rsp, bridge, spawn, load_jsb, load_ctrls, core, loco,
-        wheel_odom, ekf, navsat, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
+        wheel_odom, ekf, navsat, terrain, slam, slam_lifecycle, nav_adapter, *nav_nodes, tlm_agent,
     ])
