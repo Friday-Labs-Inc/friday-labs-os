@@ -13,6 +13,7 @@ hooks. The state machine is the standard ROS 2 one — never a custom one.
 """
 
 from lifecycle_msgs.msg import State as LCState
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.lifecycle import LifecycleNode, State, TransitionCallbackReturn
 
 from friday_msgs.msg import Heartbeat, HealthStatus, Mark1Header
@@ -39,6 +40,10 @@ class ModuleAgent(LifecycleNode):
         self._fw_version = fw_version
         self._registry_timeout_s = registry_timeout_s
 
+        # Vitals get their own callback group: sharing the default group let a
+        # slow app callback starve the heartbeat, which reads as module-DEAD
+        # at the Core and triggers spurious recovery (seen live 2026-07-19).
+        self._vitals_cbg = MutuallyExclusiveCallbackGroup()
         self._seq = 0
         self._activated_at_ns = 0
         self._hb_pub = None
@@ -83,7 +88,8 @@ class ModuleAgent(LifecycleNode):
         # heartbeat/health for modules it knows — without this re-send it
         # would never see us again, so its supervisor could never heal us.
         self._reg_keepalive_timer = self.create_timer(
-            REG_KEEPALIVE_PERIOD_S, self._register_keepalive)
+            REG_KEEPALIVE_PERIOD_S, self._register_keepalive,
+            callback_group=self._vitals_cbg)
         self._primary_state = LCState.PRIMARY_STATE_INACTIVE
         return TransitionCallbackReturn.SUCCESS
 
@@ -98,8 +104,12 @@ class ModuleAgent(LifecycleNode):
         self._seq = 0
         self._activated_at_ns = self.get_clock().now().nanoseconds
         self._primary_state = LCState.PRIMARY_STATE_ACTIVE
-        self._hb_timer = self.create_timer(qos.HEARTBEAT_PERIOD_S, self._publish_heartbeat)
-        self._health_timer = self.create_timer(qos.HEALTH_PERIOD_S, self._publish_health)
+        self._hb_timer = self.create_timer(
+            qos.HEARTBEAT_PERIOD_S, self._publish_heartbeat,
+            callback_group=self._vitals_cbg)
+        self._health_timer = self.create_timer(
+            qos.HEALTH_PERIOD_S, self._publish_health,
+            callback_group=self._vitals_cbg)
         return TransitionCallbackReturn.SUCCESS
 
     def on_deactivate(self, state: State) -> TransitionCallbackReturn:

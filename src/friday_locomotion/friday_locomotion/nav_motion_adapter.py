@@ -20,8 +20,11 @@ import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import Int8
 
 from friday_module_agent import qos
+from friday_locomotion.autonomy import motion_allowed
 from friday_msgs.msg import AuthorityLease, Mark1Header, MotionCommand
 
 CMD_TOPIC = '/mark1/locomotion/cmd_motion'
@@ -38,12 +41,19 @@ class NavMotionAdapter(Node):
         self._nonce = 0
         self._last_twist_ns = None
         self._stopped = True
+        self._autonomy = 0          # safe default: gated until /mark1/system/autonomy_mode arrives
         self._pub = self.create_publisher(
             MotionCommand, CMD_TOPIC, qos.critical_reliable())
         self.create_subscription(
             AuthorityLease, AUTHORITY_TOPIC, self._on_lease,
             qos.critical_reliable())
         self.create_subscription(Twist, '/cmd_vel_nav', self._on_twist, 10)
+        # Transient_local so a late-joining adapter still gets the last published level.
+        _autonomy_qos = QoSProfile(depth=1,
+                                   reliability=ReliabilityPolicy.RELIABLE,
+                                   durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.create_subscription(Int8, '/mark1/system/autonomy_mode',
+                                 self._on_autonomy_mode, _autonomy_qos)
         self.create_timer(0.1, self._idle_check)
         self.get_logger().info('nav motion adapter up — Nav2 rides the authority chain')
 
@@ -52,7 +62,22 @@ class NavMotionAdapter(Node):
             self.get_logger().info(f'authority holder -> {msg.holder_module_id}')
         self._holder = msg.holder_module_id
 
+    def _on_autonomy_mode(self, msg: Int8) -> None:
+        level = int(msg.data)
+        if level != self._autonomy:
+            self.get_logger().info(f'autonomy level -> {level}')
+        self._autonomy = level
+
     def _on_twist(self, msg: Twist) -> None:
+        if not motion_allowed(self._autonomy):
+            # L0 (Manual): drop all Nav2-sourced velocity; emit one clean STOP.
+            # L2 (Supervised): per-waypoint approval is a later stage — currently
+            #   passes through here exactly like L1/L3.  TODO(feat/l2-approval):
+            #   add a per-waypoint operator-approval round-trip before forwarding.
+            if not self._stopped:
+                self._stopped = True
+                self._send(MotionCommand.TYPE_STOP, 0.0, 0.0)
+            return
         self._last_twist_ns = self.get_clock().now().nanoseconds
         self._stopped = False
         self._send(MotionCommand.TYPE_VELOCITY,

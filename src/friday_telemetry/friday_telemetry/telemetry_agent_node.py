@@ -29,6 +29,7 @@ import time
 import zlib
 
 import cbor2
+import numpy as np
 import rclpy
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -38,9 +39,24 @@ from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import OccupancyGrid, Odometry
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
-from std_msgs.msg import Bool, Float32MultiArray
+from std_msgs.msg import Bool, Float32MultiArray, Int8, String
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
+import rclpy.time
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.node import Node as _RclNode
+from rclpy.parameter import Parameter as _Param
+# Heavy deps import at PROCESS start on purpose: importing them inside
+# configure/callbacks once cost minutes under the bring-up I/O storm,
+# starving the heartbeat and faking a CORE LOST (2026-07-19 incident).
+try:
+    from tf2_ros import Buffer, TransformListener
+except ImportError:                     # bench without tf2: dead-reckoned odom
+    Buffer = TransformListener = None
+try:
+    from sensor_msgs_py import point_cloud2
+except ImportError:                     # clouds skipped when helper is absent
+    point_cloud2 = None
 
 from friday_msgs.msg import (
     AuthorityLease,
@@ -55,7 +71,19 @@ from friday_module_agent.module_agent import ModuleAgent
 from friday_module_agent.nonce_store import NonceStore
 
 from friday_telemetry import protocol, voxels
+from friday_telemetry.geo import zone_gps_to_map
+from friday_telemetry.mission_planner import plan_survey
 from friday_telemetry.transport import MqttTransport
+
+# Nav2 action imports (optional — rover can run without nav2_msgs installed)
+try:
+    from rclpy.action import ActionClient
+    from nav2_msgs.action import NavigateToPose
+    from geometry_msgs.msg import PoseStamped
+    from action_msgs.msg import GoalStatus as _GoalStatus
+    _NAV2_AVAILABLE = True
+except ImportError:
+    _NAV2_AVAILABLE = False
 
 AUTHORITY_TOPIC = '/mark1/system/authority'
 SAFETY_PULSE_TOPIC = '/mark1/system/safety_pulse'
@@ -77,6 +105,7 @@ CLOUD_MIN_PERIOD_S = 0.5             # process each sensor at most 2 Hz (CPU gua
 CLOUD_SUBSAMPLE = 3                  # keep 1 in N points before transform (CPU guard)
 VOXEL_TLM_PERIOD_S = 5.0             # stream the fused world every 5 s (on change)
 ENV_TLM_PERIOD_S = 5.0               # env snapshot cadence to the broker
+TERRAIN_TLM_PERIOD_S = 1.0           # terrain classifier summary cadence (1 Hz)
 ENV_FRESH_S = 30.0                   # cached value older than this is left out
 GPS_TLM_MIN_PERIOD_S = 5.0           # gpsd is 1 Hz; the operator needs far less
 LOCO_FAULT_TOPIC = '/mark1/locomotion/fault'
@@ -162,7 +191,6 @@ def build_gps_payload(msg: 'NavSatFix') -> dict | None:
 
 def _tf_matrix(tf):
     """TransformStamped -> 4x4 homogeneous transform (numpy)."""
-    import numpy as np
     t = tf.transform.translation
     q = tf.transform.rotation
     x, y, z, w = q.x, q.y, q.z, q.w
@@ -228,6 +256,11 @@ class TelemetryAgent(ModuleAgent):
         self._env_entries = {}             # field -> (value, stamp_ns)
         self._env_subs = []
         self._env_timer = None
+        # Terrain intelligence relay: /terrain/summary -> tlm/terrain (1 Hz)
+        self._terrain_timer = None
+        self._terrain_latest_json = None
+        self.create_subscription(String, '/terrain/summary',
+                                 self._on_terrain_summary, 1)
         self._fix_sub = None
         self._last_gps_pub_ns = 0
         self._attitude_sub = None
@@ -241,14 +274,13 @@ class TelemetryAgent(ModuleAgent):
         # wall-clock buffer evicts sim-time TF as ancient -> map frame vanishes.
         # tf_use_sim_time:=true (sim launch) aligns the TF node with the sim.
         self.declare_parameter('tf_use_sim_time', False)
-        from rclpy.node import Node as _RclNode
-        from rclpy.parameter import Parameter as _Param
         self._tf_node = _RclNode(
             'telemetry_tf',
             parameter_overrides=[_Param('use_sim_time', _Param.Type.BOOL,
                                         bool(self.get_parameter('tf_use_sim_time').value))])
         self._tf_buffer = None
         self._tf_listener = None
+        self._cloud_cbg = MutuallyExclusiveCallbackGroup()  # clouds serialize on ONE thread, never saturate the pool nor block the heartbeat/lifecycle
         self._cloud_subs = []
         self._voxels = {}               # {(i,j,k): last_frame_idx} in map frame
         self._voxel_frame = 0
@@ -256,6 +288,11 @@ class TelemetryAgent(ModuleAgent):
         self._voxel_digest = 0
         self._last_cloud_ns = {}
         # --- split-brain failover state (Authority Lease Protocol) ---
+        # Authority evidence must never share a callback group with app work:
+        # a stalled configure once starved the pulse sub long enough to fake
+        # a CORE LOST and self-promote against a healthy Core (2026-07-19).
+        self._auth_cbg = MutuallyExclusiveCallbackGroup()
+        self._last_failover_check_ns = 0
         self._auth_state = TLM_MONITORING
         self._epoch = 0                   # highest epoch seen / held
         self._safety_seq = 0
@@ -272,24 +309,53 @@ class TelemetryAgent(ModuleAgent):
         self._failover_timer = None
         self._lease_timer = None
         self._pulse_timer = None
+        # --- autonomy mode state (enforced via /mark1/system/autonomy_mode) ---
+        self._autonomy_level = 0           # default: L0 Manual (safest / most restrictive)
+        self._mission_profile = 'Bench'
+        self._brain = 'Rules'
+        self._autonomy_mode_pub = None
+        self._autonomy_timer = None
+        # --- mission executor (dedicated callback group — never shares vitals) ---
+        # Respects the same isolation rules as the authority groups (2308629):
+        # mission work in its own MECE group so it cannot starve the heartbeat.
+        self._mission_cbg = MutuallyExclusiveCallbackGroup()
+        self._mission_inbound: queue.Queue = queue.Queue()
+        self._mission_state: dict | None = None   # None = IDLE
+        self._mission_goal_sent = False
+        self._mission_current_goal_handle = None
+        self._mission_nav_client = None
+        self._mission_timer = None
+        self._mission_retry_count = 0          # retries on current waypoint
+        self._mission_next_retry_ns = 0        # wall-ns: earliest time to retry
 
     # ---- ModuleAgent hooks -------------------------------------------------
     def configure_hardware(self) -> None:
+        from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
         self._motion_pub = self.create_lifecycle_publisher(
             MotionCommand, LOCOMOTION_CMD_TOPIC, qos.critical_reliable())
         self._fault_pub = self.create_lifecycle_publisher(
             FaultReport, FAULT_TOPIC, qos.state_default())
+        # Latched autonomy-level topic: reliable + transient_local + keep_last 1.
+        # Any node that joins late (e.g. nav_motion_adapter restart) still gets
+        # the current level immediately — safe default 0 is published on activate.
+        _autonomy_qos = QoSProfile(depth=1,
+                                   reliability=ReliabilityPolicy.RELIABLE,
+                                   durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self._autonomy_mode_pub = self.create_lifecycle_publisher(
+            Int8, '/mark1/system/autonomy_mode', _autonomy_qos)
         self._nonce_store = NonceStore(self.get_parameter('nonce_store').value or None)
         self._validator = protocol.CommandValidator(
             rover_id=self._rover_id,
             operator_keys=self._load_operator_allowlist(),
             now=time.time, nonce_store=self._nonce_store)
         self._authority_sub = self.create_subscription(
-            AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable())
+            AuthorityLease, AUTHORITY_TOPIC, self._on_authority, qos.critical_reliable(),
+            callback_group=self._auth_cbg)
         # failover: watch Core's safety pulse; on promotion, publish lease + pulse
         # as the holder and announce a clean hand-back via ReleaseAuthority.
         self._pulse_sub = self.create_subscription(
-            Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream())
+            Heartbeat, SAFETY_PULSE_TOPIC, self._on_safety_pulse, qos.sensor_stream(),
+            callback_group=self._auth_cbg)
         self._authority_pub = self.create_lifecycle_publisher(
             AuthorityLease, AUTHORITY_TOPIC, qos.critical_reliable())
         self._safety_pulse_pub = self.create_lifecycle_publisher(
@@ -363,17 +429,26 @@ class TelemetryAgent(ModuleAgent):
             for topic in CLOUD_TOPICS:
                 self._cloud_subs.append(self.create_subscription(
                     PointCloud2, topic,
-                    lambda msg, t=topic: self._on_cloud(msg, t), qos.sensor_stream()))
+                    lambda msg, t=topic: self._on_cloud(msg, t), qos.sensor_stream(),
+                    callback_group=self._cloud_cbg))
             # map-frame pose: the locomotion odom is DEAD-RECKONED (integrated
             # commanded velocities, no feedback) and drifts unboundedly — fine
             # as a heartbeat of motion, wrong as a position on the SLAM map.
             # When TF carries map->base_link (SLAM running), radio THAT pose.
-            try:
-                from tf2_ros import Buffer, TransformListener
+            if Buffer is None:
+                self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
+            else:
                 self._tf_buffer = Buffer()
                 self._tf_listener = TransformListener(self._tf_buffer, self._tf_node)
-            except ImportError:
-                self.get_logger().warning('tf2_ros unavailable — odom egress stays dead-reckoned')
+        # Mission executor: Nav2 action client in dedicated callback group so
+        # goal-response callbacks never run on the vitals or auth threads.
+        if _NAV2_AVAILABLE:
+            self._mission_nav_client = ActionClient(
+                self, NavigateToPose, '/navigate_to_pose',
+                callback_group=self._mission_cbg)
+        else:
+            self.get_logger().warning(
+                'nav2_msgs not available — mission executor disabled')
 
     def activate_hardware(self) -> None:
         try:
@@ -386,11 +461,24 @@ class TelemetryAgent(ModuleAgent):
         self._last_pulse_ns = now_ns
         self._core_lease_expiry_s = 0.0
         self._core_seen = False
-        self._failover_timer = self.create_timer(FAILOVER_CHECK_S, self._check_failover)
+        self._last_failover_check_ns = 0
+        self._failover_timer = self.create_timer(
+            FAILOVER_CHECK_S, self._check_failover, callback_group=self._auth_cbg)
+        # Publish default L0 so the gate has a value before any cmd/mode arrives.
+        _init_mode = Int8()
+        _init_mode.data = 0
+        self._autonomy_mode_pub.publish(_init_mode)
         if self._rover_priv is not None:
             self._env_timer = self.create_timer(ENV_TLM_PERIOD_S, self._publish_env)
+            self._terrain_timer = self.create_timer(TERRAIN_TLM_PERIOD_S, self._publish_terrain)
+            self._autonomy_timer = self.create_timer(1.0, self._publish_autonomy)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
-            self._voxel_timer = self.create_timer(VOXEL_TLM_PERIOD_S, self._publish_voxels)
+            self._voxel_timer = self.create_timer(
+                VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
+        # Mission executor timer — always active (missions arrive whether or not
+        # signing is configured, though progress telemetry needs _rover_priv).
+        self._mission_timer = self.create_timer(
+            0.5, self._mission_advance, callback_group=self._mission_cbg)
         self.get_logger().info(
             f'Command Center boundary up for rover {self._rover_id} '
             f'(operators allowlisted: {len(self._validator._keys)}) — monitoring Core authority')
@@ -405,13 +493,28 @@ class TelemetryAgent(ModuleAgent):
         if self._env_timer is not None:
             self.destroy_timer(self._env_timer)
             self._env_timer = None
+        if self._terrain_timer is not None:
+            self.destroy_timer(self._terrain_timer)
+            self._terrain_timer = None
+        if self._autonomy_timer is not None:
+            self.destroy_timer(self._autonomy_timer)
+            self._autonomy_timer = None
         if self._map_timer is not None:
             self.destroy_timer(self._map_timer)
             self._map_timer = None
         if self._voxel_timer is not None:
             self.destroy_timer(self._voxel_timer)
             self._voxel_timer = None
+        if self._mission_timer is not None:
+            self.destroy_timer(self._mission_timer)
+            self._mission_timer = None
+        if self._mission_state is not None:
+            self._mission_state['state'] = 'aborted'
+            self._publish_mission_progress()
+            self._mission_cancel_nav_goal()
+            self._mission_state = None
         if self._auth_state == TLM_HOLDING:
+            self._announce_release('telemetry deactivated while holding')
             self._stand_down()
         if self._transport is not None:
             self._transport.disconnect()
@@ -449,6 +552,65 @@ class TelemetryAgent(ModuleAgent):
                 f'cannot load rover_key_file {path}: {type(exc).__name__}')
             return None
 
+    # ---- autonomy mode enforcement ----------------------------------------
+    def _apply_mode(self, envelope: dict) -> None:
+        """Apply a validated cmd/mode envelope: update state, publish Int8, emit tlm."""
+        p = envelope['payload']
+        level = p.get('autonomy_level', 0)
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            self.get_logger().warning(f'cmd/mode: autonomy_level not an int ({level!r}); dropping')
+            return
+        if level not in (0, 1, 2, 3):
+            self.get_logger().warning(f'cmd/mode: autonomy_level {level} not in 0..3; dropping')
+            return
+        self._autonomy_level = level
+        self._mission_profile = str(p.get('mission_profile', self._mission_profile))
+        self._brain = str(p.get('brain', self._brain))
+        msg = Int8()
+        msg.data = level
+        self._autonomy_mode_pub.publish(msg)
+        self.get_logger().info(
+            f'autonomy mode SET: level={level} profile={self._mission_profile} '
+            f'brain={self._brain}')
+        self._publish_signed_telemetry('tlm/autonomy', self._autonomy_payload())
+
+    def _publish_autonomy(self) -> None:
+        """1 Hz timer: sign and emit the enforced autonomy state to the FCC."""
+        self._publish_signed_telemetry('tlm/autonomy', self._autonomy_payload())
+
+    def _autonomy_payload(self) -> dict:
+        return {
+            'class': 'autonomy',
+            'autonomy_level': self._autonomy_level,
+            'mission_profile': self._mission_profile,
+            'brain': self._brain,
+            'enforced': True,
+            'stamp': time.time(),
+        }
+
+    # ---- terrain intelligence relay ---------------------------------------
+    def _on_terrain_summary(self, msg) -> None:
+        self._terrain_latest_json = msg.data
+
+    def _publish_terrain(self) -> None:
+        """Sign + emit tlm/terrain with the latest terrain classifier summary.
+
+        The classifier already produces a compact JSON on /terrain/summary
+        (~200 bytes: class histogram + coverage). We just forward it through
+        the signed envelope so the FCC can trust and record it.
+        """
+        raw = self._terrain_latest_json
+        if not raw:
+            return
+        try:
+            payload = json.loads(raw)
+        except (ValueError, TypeError):
+            return
+        payload['class'] = 'terrain'
+        self._publish_signed_telemetry('tlm/terrain', payload)
+
     def _publish_env(self) -> None:
         payload = build_env_payload(
             self._env_entries, self.get_clock().now().nanoseconds,
@@ -467,9 +629,6 @@ class TelemetryAgent(ModuleAgent):
         if self._tf_buffer is None:
             return
         try:
-            import numpy as np
-            import rclpy.time
-            from sensor_msgs_py import point_cloud2
             tf = self._tf_buffer.lookup_transform(
                 'map', msg.header.frame_id, rclpy.time.Time())
         except Exception:  # noqa: BLE001 - no TF yet / deps: skip this cloud
@@ -485,14 +644,20 @@ class TelemetryAgent(ModuleAgent):
         if len(data) == 0:
             return
         arr = np.column_stack([data['x'], data['y'], data['z']]).astype(float)
+        finite = np.isfinite(arr).all(axis=1)
+        if not finite.any():
+            return
+        arr = arr[finite]
         mat = _tf_matrix(tf)
+        if not np.all(np.isfinite(mat)):
+            return                          # bad TF during startup: skip, don't churn
         world = (np.hstack([arr, np.ones((arr.shape[0], 1))]) @ mat.T)[:, :3]
         colors = None
         if has_rgb:
-            rgb_i = np.asarray(data['rgb'], dtype=np.float32).view(np.uint32)
+            rgb_i = np.asarray(data['rgb'], dtype=np.float32)[finite].view(np.uint32)
             r = (rgb_i >> 16) & 0xFF; g = (rgb_i >> 8) & 0xFF; b = rgb_i & 0xFF
             c = ((r & 0xE0) | ((g & 0xE0) >> 3) | ((b & 0xC0) >> 6)).astype(np.uint8)
-            colors = np.where(c == 0, 1, c).tolist()
+            colors = np.where(c == 0, 1, c)
         self._voxel_frame += 1
         voxels.add_points(self._voxels, world, voxels.VOXEL_SIZE,
                           self._voxel_frame, colors=colors)
@@ -501,9 +666,9 @@ class TelemetryAgent(ModuleAgent):
     def _publish_voxels(self) -> None:
         if not self._voxels:
             return
-        if len(self._voxels) == self._voxel_digest:
-            return                          # no growth since last send
-        self._voxel_digest = len(self._voxels)
+        if self._voxel_frame == self._voxel_digest:
+            return                          # no new frames since last send
+        self._voxel_digest = self._voxel_frame
         payload = voxels.build_voxel_payload(
             self._voxels, voxels.VOXEL_SIZE, time.time())
         if payload is not None:
@@ -540,7 +705,6 @@ class TelemetryAgent(ModuleAgent):
         if self._tf_buffer is None:
             return None
         try:
-            import rclpy.time
             tf = self._tf_buffer.lookup_transform(
                 'map', 'base_link', rclpy.time.Time())
         except Exception:  # noqa: BLE001 - no SLAM / TF not up yet
@@ -620,6 +784,12 @@ class TelemetryAgent(ModuleAgent):
                 self._ack(msg_id, False, a)
 
     def _dispatch_command(self, cmd_class: str, envelope: dict) -> None:
+        if cmd_class == 'mission':
+            self._dispatch_mission(envelope)
+            return
+        if cmd_class == 'mode':
+            self._apply_mode(envelope)
+            return
         if cmd_class != 'motion':
             self.get_logger().warning(f'unknown command class "{cmd_class}"; dropping')
             return
@@ -651,6 +821,308 @@ class TelemetryAgent(ModuleAgent):
             f'{cmd.source} (nonce {cmd.nonce}) v={cmd.linear_velocity:.2f} '
             f'w={cmd.angular_velocity:.2f}')
 
+    # ---- mission dispatch (MQTT drain thread: enqueue only) ----------------
+    def _dispatch_mission(self, envelope: dict) -> None:
+        """Called from the MQTT drain timer — just enqueue for the mission thread."""
+        p = envelope.get('payload', {})
+        op = p.get('op')
+        self._mission_inbound.put(p)
+        self.get_logger().info(
+            f'mission received: op={op} id={p.get("mission_id", "?")} — queued')
+
+    # ---- mission executor (runs in _mission_cbg) ---------------------------
+    def _mission_advance(self) -> None:
+        """State-machine tick for the mission executor (0.5 Hz timer, mission_cbg)."""
+        # Drain inbound mission commands (enqueued by MQTT drain timer)
+        try:
+            while True:
+                cmd = self._mission_inbound.get_nowait()
+                self._handle_mission_cmd(cmd)
+        except queue.Empty:
+            pass
+
+        ms = self._mission_state
+        if ms is None:
+            return
+
+        # Authority health check: if neither Core nor Telemetry holds a valid
+        # lease the rover's wheels are frozen — pause the mission rather than
+        # keep issuing Nav2 goals that go nowhere.
+        now_s = self.get_clock().now().nanoseconds * 1e-9
+        authority_ok = (now_s < self._core_lease_expiry_s or
+                        self._auth_state == TLM_HOLDING)
+
+        if ms['state'] == 'active' and not authority_ok:
+            self.get_logger().warning(
+                f'mission {ms["mission_id"]}: authority lost — pausing')
+            self._mission_cancel_nav_goal()
+            ms['state'] = 'paused'
+            self._publish_mission_progress()
+            return
+
+        if ms['state'] == 'paused' and authority_ok:
+            self.get_logger().info(
+                f'mission {ms["mission_id"]}: authority restored — resuming')
+            ms['state'] = 'active'
+            self._mission_goal_sent = False    # re-send current waypoint
+            self._publish_mission_progress()
+
+        if ms['state'] != 'active':
+            return
+
+        if self._mission_goal_sent:
+            return    # waiting for Nav2 result callback
+
+        # Honour retry backoff (costmap expanding, SLAM building)
+        if self._mission_next_retry_ns > 0:
+            if self.get_clock().now().nanoseconds < self._mission_next_retry_ns:
+                return
+            self._mission_next_retry_ns = 0
+
+        i = ms['waypoint_i']
+        waypoints = ms['waypoints']
+        if i >= len(waypoints):
+            ms['state'] = 'complete'
+            ms['coverage_pct'] = 100.0
+            self.get_logger().info(
+                f'mission {ms["mission_id"]}: COMPLETE ({len(waypoints)} waypoints)')
+            self._publish_mission_progress()
+            self._mission_state = None
+            return
+
+        if self._mission_nav_client is None:
+            self.get_logger().error('Nav2 action client not available; mission failed')
+            ms['state'] = 'failed'
+            self._publish_mission_progress()
+            self._mission_state = None
+            return
+
+        if not self._mission_nav_client.server_is_ready():
+            return    # Nav2 not up yet — retry next tick
+
+        # L2 Supervised: pause for operator approval before EACH waypoint goal.
+        # The rover plans + executes, but the operator approves key decisions.
+        # motion_allowed(2) is True at the wheel gate, so approval controls the
+        # GOAL, not low-level motion. Approve/deny arrives as a signed command.
+        if self._autonomy_level == 2 and ms.get('approved_wp', -1) < i:
+            if not ms.get('awaiting_approval'):
+                ms['awaiting_approval'] = True
+                ms['pending_wp'] = i
+                self.get_logger().info(
+                    f'mission {ms["mission_id"]}: wp {i} AWAITING OPERATOR '
+                    f'APPROVAL (L2 Supervised)')
+                self._publish_mission_progress()
+            return    # hold until an approve/deny command arrives
+
+        x, y = waypoints[i]
+        self._mission_send_nav_goal(x, y)
+        self._mission_goal_sent = True
+        self.get_logger().info(
+            f'mission {ms["mission_id"]}: wp {i}/{len(waypoints)-1} -> ({x:.2f}, {y:.2f})')
+
+    def _handle_mission_cmd(self, cmd: dict) -> None:
+        op = cmd.get('op')
+        mission_id = cmd.get('mission_id', '?')
+
+        if op == 'survey_start':
+            if self._mission_state is not None:
+                # Preempt any existing mission
+                self.get_logger().warning(
+                    f'preempting mission {self._mission_state["mission_id"]} '
+                    f'for new mission {mission_id}')
+                self._mission_cancel_nav_goal()
+                self._mission_state['state'] = 'aborted'
+                self._publish_mission_progress()
+
+            zone = cmd.get('zone')
+            zone_gps = cmd.get('zone_gps')
+            if zone_gps is not None and zone is None:
+                zone = zone_gps_to_map(zone_gps)
+            if zone is None:
+                self.get_logger().error(f'mission {mission_id}: no zone in payload')
+                return
+
+            spacing = float(cmd.get('lane_spacing_m', 3.0))
+            waypoints = plan_survey(zone, spacing)
+            if not waypoints:
+                self.get_logger().error(
+                    f'mission {mission_id}: degenerate zone {zone} produced no waypoints')
+                return
+
+            self._mission_state = {
+                'mission_id': mission_id,
+                'waypoints': waypoints,
+                'waypoint_i': 0,
+                'waypoint_n': len(waypoints),
+                'state': 'active',
+                'coverage_pct': 0.0,
+            }
+            self._mission_goal_sent = False
+            self._mission_retry_count = 0
+            self._mission_current_goal_handle = None
+            self.get_logger().info(
+                f'mission {mission_id}: survey_start zone={zone} '
+                f'spacing={spacing} waypoints={len(waypoints)}')
+            self._publish_mission_progress()
+
+        elif op == 'abort':
+            if (self._mission_state is not None and
+                    self._mission_state['mission_id'] == mission_id):
+                self.get_logger().info(f'mission {mission_id}: ABORT received')
+                self._mission_cancel_nav_goal()
+                self._mission_state['state'] = 'aborted'
+                self._publish_mission_progress()
+                self._mission_state = None
+            else:
+                self.get_logger().warning(
+                    f'abort for {mission_id} but active mission is '
+                    f'{self._mission_state["mission_id"] if self._mission_state else "none"}')
+        elif op in ('approve', 'deny'):
+            ms = self._mission_state
+            if ms is None or ms['mission_id'] != mission_id:
+                self.get_logger().warning(
+                    f'{op} for {mission_id} but no matching active mission')
+                return
+            wp = int(cmd.get('waypoint_i', ms.get('pending_wp', ms['waypoint_i'])))
+            ms['awaiting_approval'] = False
+            if op == 'approve':
+                ms['approved_wp'] = wp          # unblocks _mission_advance for wp
+                self.get_logger().info(
+                    f'mission {mission_id}: wp {wp} APPROVED by operator')
+            else:  # deny -> skip this waypoint, ask again for the next
+                if wp == ms['waypoint_i']:
+                    ms['waypoint_i'] += 1
+                    ms.setdefault('skipped', 0)
+                    ms['skipped'] += 1
+                self.get_logger().info(
+                    f'mission {mission_id}: wp {wp} DENIED by operator — skipping')
+            self._mission_goal_sent = False
+            self._publish_mission_progress()
+
+        else:
+            self.get_logger().warning(f'unknown mission op "{op}"; ignoring')
+
+    def _mission_send_nav_goal(self, x: float, y: float) -> None:
+        goal = NavigateToPose.Goal()
+        goal.pose = PoseStamped()
+        goal.pose.header.frame_id = 'map'
+        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.pose.position.x = x
+        goal.pose.pose.position.y = y
+        goal.pose.pose.orientation.w = 1.0
+        goal.behavior_tree = ''
+        fut = self._mission_nav_client.send_goal_async(goal)
+        fut.add_done_callback(self._on_mission_goal_response)
+
+    def _on_mission_goal_response(self, future) -> None:
+        goal_handle = future.result()
+        ms = self._mission_state
+        if not goal_handle.accepted:
+            self.get_logger().warning('Nav2 rejected mission waypoint goal')
+            self._mission_goal_sent = False
+            if ms is not None:
+                ms['state'] = 'failed'
+                self._publish_mission_progress()
+                self._mission_state = None
+            return
+        self._mission_current_goal_handle = goal_handle
+        goal_handle.get_result_async().add_done_callback(self._on_mission_goal_result)
+
+    def _on_mission_goal_result(self, future) -> None:
+        ms = self._mission_state
+        self._mission_goal_sent = False
+        self._mission_current_goal_handle = None
+
+        result = future.result()
+        status = result.status
+
+        if ms is None:
+            return    # mission was aborted while waiting
+
+        if ms['state'] not in ('active', 'paused'):
+            return    # aborted/completed between goal send and result
+
+        _MAX_RETRIES = 6   # outdoor: fail fast per-wp, skip+advance (below) keeps mission productive
+        if status == _GoalStatus.STATUS_SUCCEEDED:
+            ms['waypoint_i'] += 1
+            self._mission_retry_count = 0
+            n = ms['waypoint_n']
+            ms['coverage_pct'] = ms['waypoint_i'] / n * 100.0
+            self.get_logger().info(
+                f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]}/{n} done '
+                f'coverage={ms["coverage_pct"]:.1f}%')
+            self._publish_mission_progress()
+        elif status in (_GoalStatus.STATUS_CANCELED, _GoalStatus.STATUS_ABORTED):
+            # STATUS_CANCELED: external preemption (patrol goal) or our abort.
+            # STATUS_ABORTED: Nav2 planner/controller failed — most commonly the
+            #   goal is outside the current SLAM costmap bounds; the map will
+            #   expand as the rover patrols, so we retry up to _MAX_RETRIES.
+            if ms['state'] == 'active':
+                self._mission_retry_count += 1
+                if self._mission_retry_count <= _MAX_RETRIES:
+                    # Backoff: aborted (costmap) waits longer than canceled (preempt)
+                    delay_s = 5.0 if status == _GoalStatus.STATUS_ABORTED else 1.0
+                    self._mission_next_retry_ns = (
+                        self.get_clock().now().nanoseconds + int(delay_s * 1e9))
+                    self.get_logger().info(
+                        f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]} '
+                        f'status={status} — retry {self._mission_retry_count}/'
+                        f'{_MAX_RETRIES} in {delay_s:.0f}s')
+                else:
+                    # Skip-and-advance: log the miss, count it, move to the next
+                    # waypoint. Outdoor terrain slopes make some interior cells
+                    # unreachable; best-effort coverage beats a whole-mission
+                    # failure. If EVERY wp is skipped, we surface 'failed' at the
+                    # end so the operator sees the story honestly.
+                    self.get_logger().warning(
+                        f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]} '
+                        f'unreachable after {_MAX_RETRIES} retries — skipping')
+                    ms.setdefault('skipped', 0)
+                    ms['skipped'] += 1
+                    ms['waypoint_i'] += 1
+                    self._mission_retry_count = 0
+                    n = ms['waypoint_n']
+                    ms['coverage_pct'] = (ms['waypoint_i'] - ms['skipped']) / n * 100.0
+                    self._publish_mission_progress()
+                    # If everything skipped so far, degrade to failed at end of mission
+                    if ms['waypoint_i'] >= n and ms['skipped'] == n:
+                        ms['state'] = 'failed'
+                        self._publish_mission_progress()
+                        self._mission_state = None
+        else:
+            self.get_logger().warning(
+                f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]} '
+                f'failed (status={status})')
+            ms['state'] = 'failed'
+            self._publish_mission_progress()
+            self._mission_state = None
+
+    def _mission_cancel_nav_goal(self) -> None:
+        handle = self._mission_current_goal_handle
+        if handle is not None:
+            handle.cancel_goal_async()
+            self._mission_current_goal_handle = None
+            self._mission_goal_sent = False
+
+    def _publish_mission_progress(self) -> None:
+        ms = self._mission_state
+        if ms is None:
+            return
+        payload = {
+            'class': 'mission',
+            'mission_id': ms['mission_id'],
+            'state': 'awaiting_approval' if ms.get('awaiting_approval') else ms['state'],
+            'waypoint_i': ms['waypoint_i'],
+            'waypoint_n': ms['waypoint_n'],
+            'coverage_pct': round(ms['coverage_pct'], 1),
+            'skipped': ms.get('skipped', 0),
+            'awaiting_approval': bool(ms.get('awaiting_approval')),
+            'pending_wp': ms.get('pending_wp', -1),
+            'stamp': time.time(),
+        }
+        self._publish_signed_telemetry('tlm/mission', payload)
+
+    # ---- authority tracking ------------------------------------------------
     def _on_authority(self, msg: AuthorityLease) -> None:
         # Track Core's lease for failover detection. Ignore our own echo while
         # holding, and ignore a stale lower-epoch lease (epoch-monotonic).
@@ -674,6 +1146,16 @@ class TelemetryAgent(ModuleAgent):
         if self._auth_state != TLM_MONITORING or not self._core_seen:
             return
         now_ns = self.get_clock().now().nanoseconds
+        gap_s = ((now_ns - self._last_failover_check_ns) / 1e9
+                 if self._last_failover_check_ns else 0.0)
+        self._last_failover_check_ns = now_ns
+        if authority.starved(gap_s=gap_s, period_s=FAILOVER_CHECK_S):
+            # THIS process stalled between checks: the "Core silent" evidence
+            # was gathered while we weren't scheduled. Discard it rather than
+            # act on it — a starved Telemetry once self-promoted against a
+            # healthy Core and quarantined the fleet (2026-07-19).
+            self._last_pulse_ns = now_ns
+            return
         lease_expired = (now_ns * 1e-9) >= self._core_lease_expiry_s
         pulse_lost = (now_ns - self._last_pulse_ns) / 1e9 >= PULSE_LOST_S
         if authority.should_failover(lease_expired=lease_expired, pulse_lost=pulse_lost):
@@ -741,13 +1223,21 @@ class TelemetryAgent(ModuleAgent):
         return response
 
     def _release_authority(self, new_epoch: int, requester: str) -> None:
+        self._announce_release(f'authority returned to {requester} at epoch {new_epoch}')
+        self._stand_down()
+
+    def _announce_release(self, reason: str) -> None:
+        # A holder must never stand down silently: consumers keep the epoch
+        # high-water and reject every lower lease, so an unannounced stand-down
+        # orphans the epoch and quarantines a lower-epoch Core forever. The
+        # release rides TRANSIENT_LOCAL, so even a Core that boots later still
+        # hears it and adopts a higher epoch.
         rel = ReleaseAuthority()
         rel.header = self._header()
         rel.releasing_module_id = self._module_id
         rel.epoch = self._epoch
-        rel.reason = f'authority returned to {requester} at epoch {new_epoch}'
+        rel.reason = reason
         self._release_pub.publish(rel)
-        self._stand_down()
 
     def _stand_down(self) -> None:
         for attr in ('_lease_timer', '_pulse_timer'):
@@ -823,13 +1313,24 @@ class TelemetryAgent(ModuleAgent):
 def main(args=None):
     rclpy.init(args=args)
     node = TelemetryAgent()
+    from rclpy.executors import ExternalShutdownException
     executor = MultiThreadedExecutor()
     executor.add_node(node)
     executor.add_node(node._tf_node)       # dedicated TF clock (sim vs wall)
+    # Crash-proof spin (matches friday_module_agent.runner.spin_agent): rclpy
+    # lifecycle nodes RAISE on an invalid transition, and the supervisor's
+    # recovery can trigger one after a transient heartbeat miss. A plain
+    # spin() would let that RCLError kill the process (and ALL telemetry) —
+    # this stays alive and re-enters spin instead.
     try:
-        executor.spin()
-    except KeyboardInterrupt:
-        pass
+        while rclpy.ok():
+            try:
+                executor.spin()
+                break
+            except (KeyboardInterrupt, ExternalShutdownException):
+                break
+            except Exception as exc:  # noqa: BLE001 -- deliberate: a daemon degrades, never dies
+                node.get_logger().error(f'telemetry recovered from handler exception: {exc!r}')
     finally:
         node._tf_node.destroy_node()
         node.destroy_node()

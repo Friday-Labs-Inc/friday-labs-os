@@ -25,7 +25,7 @@ from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 
-from friday_msgs.msg import (AuthorityLease, Heartbeat, HealthStatus, Mark1Header,
+from friday_msgs.msg import (AuthorityLease, ReleaseAuthority, Heartbeat, HealthStatus, Mark1Header,
                              ModulePresence)
 from friday_msgs.srv import RegisterModule, RequestAuthority
 from friday_module_agent import authority, protocol, qos
@@ -87,6 +87,7 @@ class CoreHub(Node):
         # Restore the previous roster (DEAD until heard -- real heartbeats
         # promote within seconds), then export an honest snapshot: a Core-Hub
         # restart no longer serves an empty fleet to the FCC.
+        self._epoch_floor = 0     # highest authority epoch ever seen or held
         self._restore_registry()
         self._export_registry()
 
@@ -114,6 +115,10 @@ class CoreHub(Node):
         self._authority_sub = self.create_subscription(
             AuthorityLease, '/mark1/system/authority', self._on_authority_observed,
             qos.critical_reliable(), callback_group=self._cb_group)
+        self._release_sub = self.create_subscription(
+            ReleaseAuthority, '/mark1/system/authority_release',
+            self._on_authority_release, qos.critical_reliable(),
+            callback_group=self._cb_group)
         self._request_client = self.create_client(
             RequestAuthority, '/mark1/system/request_authority',
             callback_group=self._cb_group)
@@ -188,13 +193,58 @@ class CoreHub(Node):
         self._authority_pub.publish(msg)
 
     def _on_authority_observed(self, msg: AuthorityLease) -> None:
-        # Before we hold, note any *other* node's live lease (a failover took over).
-        if self._auth_state == AUTH_HOLDING or \
-                msg.holder_module_id == self._authority_holder:
+        # Note any *other* node's live lease (a failover took over).
+        if msg.holder_module_id == self._authority_holder:
+            return
+        self._epoch_floor = max(self._epoch_floor, msg.epoch)
+        if self._auth_state == AUTH_HOLDING:
+            if msg.epoch > self._epoch:
+                # Superseded: a failover raised the epoch while we held a
+                # lower one. Consumers follow the higher epoch and silently
+                # reject ours — keeping the stale claim deadlocks the fleet
+                # (seen live 2026-07-19). Stand down and rejoin cleanly.
+                self.get_logger().warning(
+                    f'lease from {msg.holder_module_id} at epoch {msg.epoch} '
+                    f'supersedes ours ({self._epoch}) — standing down to rejoin')
+                self._observed_holder = msg.holder_module_id
+                self._observed_epoch = msg.epoch
+                self._observed_expiry_s = _t2s(msg.expires_at)
+                self._rejoined = True
+                self._auth_state = AUTH_REQUESTING
+                self._request_authority_return()
             return
         self._observed_holder = msg.holder_module_id
         self._observed_epoch = msg.epoch
         self._observed_expiry_s = _t2s(msg.expires_at)
+
+    def _on_authority_release(self, msg) -> None:
+        # A holder standing down announces the epoch so it is never orphaned
+        # (rides TRANSIENT_LOCAL: a Core that boots later still hears it).
+        if msg.releasing_module_id == self._authority_holder:
+            return
+        self._epoch_floor = max(self._epoch_floor, msg.epoch)
+        if self._auth_state == AUTH_HOLDING:
+            if msg.epoch >= self._epoch:
+                self._epoch = msg.epoch + 1
+                self._epoch_floor = self._epoch
+                self.get_logger().warning(
+                    f'{msg.releasing_module_id} released authority at epoch '
+                    f'{msg.epoch} — Core adopts epoch {self._epoch}')
+                self._publish_authority()
+            return
+        if self._auth_state == AUTH_REQUESTING and self._quiet_timer is None:
+            # The holder we were asking is gone; stop retrying and take over
+            # above the released epoch.
+            if self._retry_timer is not None:
+                self._retry_timer.cancel()
+                self._retry_timer = None
+            self._epoch = self._epoch_floor + 1
+            self._epoch_floor = self._epoch
+            self._auth_state = AUTH_HOLDING
+            self.get_logger().warning(
+                f'holder released at epoch {msg.epoch} while Core was '
+                f'requesting — Core takes authority at epoch {self._epoch}')
+            self._publish_authority()
 
     def _end_observe_window(self) -> None:
         self._observe_timer.cancel()
@@ -210,11 +260,15 @@ class CoreHub(Node):
                 f'(epoch {self._observed_epoch}) — requesting clean hand-back')
             self._request_authority_return()
         else:
-            # clean boot: nobody else holds — take the lease at epoch 1.
-            self._epoch = 1
+            # clean boot: nobody else holds. Start ABOVE the epoch high-water
+            # (persisted + observed): consumers reject any lower epoch, and a
+            # Core reborn at epoch 1 against consumers at 2 deadlocks the
+            # fleet.
+            self._epoch = self._epoch_floor + 1
+            self._epoch_floor = self._epoch
             self._auth_state = AUTH_HOLDING
             self.get_logger().info(
-                'observe window: clean boot — Core takes authority at epoch 1')
+                f'observe window: clean boot — Core takes authority at epoch {self._epoch}')
 
     def _request_authority_return(self) -> None:
         if not self._request_client.wait_for_service(timeout_sec=2.0):
@@ -254,6 +308,7 @@ class CoreHub(Node):
             self._quiet_timer.cancel()
             self._quiet_timer = None
         self._epoch = self._pending_epoch
+        self._epoch_floor = max(self._epoch_floor, self._epoch)
         self._auth_state = AUTH_HOLDING
         self.get_logger().info(
             f'quiet window elapsed — Core resumes authority at epoch {self._epoch}')
@@ -349,9 +404,19 @@ class CoreHub(Node):
     def _restore_registry(self) -> None:
         try:
             with open(REGISTRY_EXPORT, encoding='utf-8') as f:
-                entries = persistence.parse_snapshot(f.read())
+                raw = f.read()
+            entries = persistence.parse_snapshot(raw)
         except OSError:
             return                          # first boot: no snapshot yet
+        # Epoch high-water survives a restart: consumers remember the highest
+        # epoch they ever saw and silently reject anything lower — a Core
+        # reborn at epoch 1 against consumers at 2 is quarantined forever
+        # (2026-07-19). Resume ABOVE the previous life instead.
+        try:
+            self._epoch_floor = max(self._epoch_floor,
+                                    int(json.loads(raw).get('authority_epoch', 0)))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            pass
         restored = 0
         for entry in entries:
             result = self._registry.register(**entry)
@@ -387,7 +452,8 @@ class CoreHub(Node):
                 'liveness': self._liveness.get(mid, 'UNKNOWN'),
                 'heartbeat_age_s': round((now - last) / 1e9, 2) if last else None,
             })
-        payload = {'updated_unix': round(now / 1e9, 3), 'modules': mods}
+        payload = {'updated_unix': round(now / 1e9, 3),
+                   'authority_epoch': self._epoch_floor, 'modules': mods}
         try:
             tmp = REGISTRY_EXPORT + '.tmp'
             with open(tmp, 'w', encoding='utf-8') as f:

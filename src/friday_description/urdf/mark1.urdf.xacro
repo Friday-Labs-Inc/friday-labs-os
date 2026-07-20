@@ -246,4 +246,63 @@
       <always_on>true</always_on><visualize>false</visualize>
     </sensor>
   </gazebo>
+
+  <!-- ===== bumper-height ground-scan RGB-D (terrain intelligence) =====
+       Downward-tilted depth camera at the front bumper. Where the mast lidar
+       sees the TOP of a slope (registers as wall in the flat costmap), this
+       sensor sees the SURFACE ahead of the wheels — so the terrain classifier
+       can tell "climbable slope" from "vertical wall". Short range (max 3 m),
+       narrow-mounted (128×96) so the classifier stays cheap. -->
+  <link name="ground_scan_link">
+    <inertial><mass value="0.05"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="ground_scan_joint" type="fixed">
+    <parent link="base_link"/><child link="ground_scan_link"/>
+    <!-- x=0.32: forward of front axle so wheels don't occlude the scan.
+         z=0.14: just above the wheels (wheel top ~0.134 m).
+         pitch=0.524 rad (30°): nose down for a ~0.4-1.5 m ground swath. -->
+    <origin xyz="0.32 0 0.14" rpy="0 0.524 0"/>
+  </joint>
+  <gazebo reference="ground_scan_link">
+    <sensor name="ground_scan" type="rgbd_camera">
+      <topic>ground_scan</topic>
+      <gz_frame_id>ground_scan_link</gz_frame_id>
+      <update_rate>10</update_rate>
+      <camera>
+        <horizontal_fov>1.05</horizontal_fov>
+        <image><width>128</width><height>96</height></image>
+        <clip><near>0.05</near><far>3.0</far></clip>
+      </camera>
+      <always_on>true</always_on><visualize>false</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- ===== GPS / NavSat (sim stand-in for the rover's GPS module) =====
+       Baylands world carries real WGS84 spherical coordinates (lat 37.41 N,
+       lon -121.99 W) so the NavSat sensor reports genuine lat/lon for this
+       location. The bridge maps gz topic /gps/fix -> ROS /gps/fix (NavSatFix)
+       so the telemetry agent can forward it to the FCC and navsat_transform
+       can anchor the map frame to the real-world position. -->
+  <link name="gps_link">
+    <inertial><mass value="0.02"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
+  </link>
+  <joint name="gps_joint" type="fixed">
+    <parent link="base_link"/><child link="gps_link"/>
+    <origin xyz="0 0 0.40" rpy="0 0 0"/>
+  </joint>
+  <gazebo reference="gps_link">
+    <sensor name="gps" type="navsat">
+      <topic>gps/fix</topic>
+      <update_rate>1</update_rate>
+      <always_on>true</always_on>
+      <navsat>
+        <position_sensing>
+          <horizontal><noise type="gaussian"><mean>0</mean><stddev>0.0001</stddev></noise></horizontal>
+          <vertical><noise type="gaussian"><mean>0</mean><stddev>0.0002</stddev></noise></vertical>
+        </position_sensing>
+      </navsat>
+    </sensor>
+  </gazebo>
 </robot>
