@@ -167,6 +167,9 @@ class TerrainAnalysisNode(Node):
         )
         self._cost_pub = self.create_publisher(OccupancyGrid, '/terrain/costmap', cost_qos)
         self._cloud_pub = self.create_publisher(PointCloud2, '/terrain/classified_points', 1)
+        # Lethal-only cloud — Nav2 obstacle_layer observes this and routes
+        # around cells the terrain classifier deemed non-traversable.
+        self._obstacle_pub = self.create_publisher(PointCloud2, '/terrain/obstacle_points', 1)
         self._summary_pub = self.create_publisher(String, '/terrain/summary', 1)
 
         self._sub = self.create_subscription(
@@ -254,6 +257,9 @@ class TerrainAnalysisNode(Node):
 
         if self._pub_cloud:
             self._publish_classified_cloud(msg.header.stamp, grid)
+        # Always publish obstacle_points for Nav2 (cheap; even zero-lethal
+        # frames get an empty cloud so obstacle_layer can clear stale marks).
+        self._publish_obstacle_points(msg.header.stamp, grid)
 
     def _publish_classified_cloud(self, stamp, grid: TerrainGrid) -> None:
         seen_iy, seen_ix = np.where(grid.count > 0)
@@ -290,6 +296,50 @@ class TerrainAnalysisNode(Node):
         cloud.is_dense = True
         cloud.data = buf.tobytes()
         self._cloud_pub.publish(cloud)
+
+
+    def _publish_obstacle_points(self, stamp, grid: TerrainGrid) -> None:
+        """Publish LETHAL cells as a PointCloud2 for Nav2 obstacle_layer.
+
+        Cells classified as any LETHAL_* (step/slope/cliff) become 3D points
+        placed at chassis-height (z=0.30 in base_link) so Nav2's obstacle_layer
+        default height filter (0..2 m) captures them. An empty cloud is still
+        published every frame — this lets obstacle_layer's clearing raytrace
+        prune stale marks when the classifier's opinion changes.
+        """
+        lethal_mask = grid.classes >= 5  # CLS_LETHAL_STEP=5, LETHAL_SLOPE=6, LETHAL_CLIFF=7
+        seen_iy, seen_ix = np.where(lethal_mask)
+        half = self._grid_m * 0.5
+        xs = -half + (seen_ix + 0.5) * self._cell_m
+        ys = -half + (seen_iy + 0.5) * self._cell_m
+        zs = np.full(xs.shape, 0.30, dtype=np.float32)
+
+        buf = np.zeros((xs.size,),
+                       dtype=[('x', np.float32), ('y', np.float32),
+                              ('z', np.float32)])
+        buf['x'] = xs.astype(np.float32)
+        buf['y'] = ys.astype(np.float32)
+        buf['z'] = zs
+
+        fields = [
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+        ]
+        header = Header()
+        header.stamp = stamp
+        header.frame_id = self._base
+        cloud = PointCloud2()
+        cloud.header = header
+        cloud.height = 1
+        cloud.width = xs.size
+        cloud.fields = fields
+        cloud.is_bigendian = False
+        cloud.point_step = 12
+        cloud.row_step = 12 * xs.size
+        cloud.is_dense = True
+        cloud.data = buf.tobytes()
+        self._obstacle_pub.publish(cloud)
 
 
 def main(args=None) -> None:
