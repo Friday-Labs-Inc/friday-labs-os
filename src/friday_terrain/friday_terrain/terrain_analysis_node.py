@@ -47,7 +47,7 @@ GRID_W = int(GRID_SIZE_M / CELL_M)
 
 STEP_ROUGH_M = 0.03
 STEP_LETHAL_M = WHEEL_RADIUS_M
-CLIFF_M = -WHEEL_RADIUS_M
+CLIFF_M = -0.50                    # true precipice: chassis-bottom drops > 50 cm (slopes classified by SLOPE_ rules)
 
 SLOPE_GENTLE = math.radians(10)
 SLOPE_STEEP = math.radians(20)

@@ -86,8 +86,8 @@ def test_lethal_slope_over_30deg():
 
 def test_cliff_below_rover_base_is_lethal():
     min_z, max_z, count = _seen_grid()
-    min_z[2, 2] = -0.10  # below rover base by 10 cm > wheel radius
-    max_z[2, 2] = -0.10
+    min_z[2, 2] = -0.60  # true precipice: > 50 cm drop
+    max_z[2, 2] = -0.60  # uniform depth, no step -> pure cliff
     g = classify_grid(min_z, max_z, count, cell_m=0.10)
     assert g.classes[2, 2] == CLS_LETHAL_CLIFF
     assert g.cost[2, 2] == COST_LETHAL
