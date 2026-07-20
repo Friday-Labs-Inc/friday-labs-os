@@ -93,8 +93,8 @@ global_costmap:
       # SLAM obstacle data within the window; allow_unknown=true in the planner
       # lets it route through unseen space.
       rolling_window: true
-      width: 60.0
-      height: 60.0
+      width: 60
+      height: 60
       plugins: [static_layer, obstacle_layer, inflation_layer]
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer

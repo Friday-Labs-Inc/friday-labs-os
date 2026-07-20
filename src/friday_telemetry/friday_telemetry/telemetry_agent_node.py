@@ -984,6 +984,7 @@ class TelemetryAgent(ModuleAgent):
             'waypoint_i': ms['waypoint_i'],
             'waypoint_n': ms['waypoint_n'],
             'coverage_pct': round(ms['coverage_pct'], 1),
+            'skipped': ms.get('skipped', 0),
             'stamp': time.time(),
         }
         self._publish_signed_telemetry('tlm/mission', payload)
