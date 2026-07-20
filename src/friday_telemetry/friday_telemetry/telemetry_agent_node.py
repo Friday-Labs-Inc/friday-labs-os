@@ -911,7 +911,7 @@ class TelemetryAgent(ModuleAgent):
         if ms['state'] not in ('active', 'paused'):
             return    # aborted/completed between goal send and result
 
-        _MAX_RETRIES = 30  # allow SLAM map ~30 s to expand before giving up
+        _MAX_RETRIES = 6   # outdoor: fail fast per-wp, skip+advance (below) keeps mission productive
         if status == _GoalStatus.STATUS_SUCCEEDED:
             ms['waypoint_i'] += 1
             self._mission_retry_count = 0
@@ -938,12 +938,26 @@ class TelemetryAgent(ModuleAgent):
                         f'status={status} — retry {self._mission_retry_count}/'
                         f'{_MAX_RETRIES} in {delay_s:.0f}s')
                 else:
+                    # Skip-and-advance: log the miss, count it, move to the next
+                    # waypoint. Outdoor terrain slopes make some interior cells
+                    # unreachable; best-effort coverage beats a whole-mission
+                    # failure. If EVERY wp is skipped, we surface 'failed' at the
+                    # end so the operator sees the story honestly.
                     self.get_logger().warning(
                         f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]} '
-                        f'permanently failed after {_MAX_RETRIES} retries')
-                    ms['state'] = 'failed'
+                        f'unreachable after {_MAX_RETRIES} retries — skipping')
+                    ms.setdefault('skipped', 0)
+                    ms['skipped'] += 1
+                    ms['waypoint_i'] += 1
+                    self._mission_retry_count = 0
+                    n = ms['waypoint_n']
+                    ms['coverage_pct'] = (ms['waypoint_i'] - ms['skipped']) / n * 100.0
                     self._publish_mission_progress()
-                    self._mission_state = None
+                    # If everything skipped so far, degrade to failed at end of mission
+                    if ms['waypoint_i'] >= n and ms['skipped'] == n:
+                        ms['state'] = 'failed'
+                        self._publish_mission_progress()
+                        self._mission_state = None
         else:
             self.get_logger().warning(
                 f'mission {ms["mission_id"]}: wp {ms["waypoint_i"]} '
