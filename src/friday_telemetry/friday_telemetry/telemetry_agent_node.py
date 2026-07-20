@@ -195,7 +195,7 @@ class TelemetryAgent(ModuleAgent):
             self._transport.subscribe(f'mark1/{self._rover_id}/cmd/+', self._on_cc_message)
         except Exception as exc:  # noqa: BLE001 - link down must not crash the node
             self.get_logger().error(f'Command Center link failed: {exc}')
-        self._drain_timer = self.create_timer(0.02, self._drain_inbound)
+        self._drain_timer = self.create_timer(0.05, self._drain_inbound)
         now_ns = self.get_clock().now().nanoseconds
         self._last_pulse_ns = now_ns
         self._core_lease_expiry_s = 0.0
