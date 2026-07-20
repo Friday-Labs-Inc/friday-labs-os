@@ -1,0 +1,11 @@
+<library path="friday_nav_layers">
+  <class name="friday_nav_layers::TerrainLayer"
+         type="friday_nav_layers::TerrainLayer"
+         base_class_type="nav2_costmap_2d::Layer">
+    <description>
+      Converts Mark 1 terrain classifier output (/terrain/costmap OccupancyGrid)
+      into gradient Nav2 costmap cost. Unknown=-1 skipped; 0=FREE_SPACE;
+      1-99 scaled 0-252; 100=LETHAL_OBSTACLE. Combined via updateWithMax.
+    </description>
+  </class>
+</library>
