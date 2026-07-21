@@ -46,7 +46,8 @@ CELL_M = 0.10
 GRID_W = int(GRID_SIZE_M / CELL_M)
 
 STEP_ROUGH_M = 0.03
-STEP_LETHAL_M = 2 * WHEEL_RADIUS_M  # 13 cm curb-height; outdoor grass/pebbles exceed 1x radius routinely
+STEP_LETHAL_M = 0.25               # genuine obstacle/curb height; below this, outdoor grass/pebble
+                                   # roughness classifies as rough/steep (passable, high-cost) not lethal
 CLIFF_M = -0.50                    # true precipice: chassis-bottom drops > 50 cm (slopes classified by SLOPE_ rules)
 
 SLOPE_GENTLE = math.radians(10)
