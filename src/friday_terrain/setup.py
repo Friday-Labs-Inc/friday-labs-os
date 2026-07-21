@@ -22,6 +22,7 @@ setup(
     entry_points={
         'console_scripts': [
             'terrain_analysis = friday_terrain.terrain_analysis_node:main',
+            'terrain_map = friday_terrain.terrain_map_node:main',
         ],
     },
 )

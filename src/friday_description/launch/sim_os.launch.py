@@ -75,7 +75,8 @@ def generate_launch_description() -> LaunchDescription:
                              '/lidar3d/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
                              '/depthcam/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
                              '/ground_scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-                             '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat'])
+                             '/gps/fix@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
+                             '/ground_scan/image@sensor_msgs/msg/Image[gz.msgs.Image'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
                  arguments=['-topic', 'robot_description', '-name', 'mark1',
                             '-x', LaunchConfiguration('spawn_x'),
