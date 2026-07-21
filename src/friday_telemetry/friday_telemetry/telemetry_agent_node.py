@@ -100,6 +100,8 @@ ATT_TLM_PERIOD_S = 5.0               # operator cadence; the bus stays 10 Hz
 MAP_TOPIC = '/map'                   # slam_toolbox occupancy grid (sim today)
 MAP_TLM_PERIOD_S = 10.0              # full snapshot, only when the map changed
 MAP_MAX_COMPRESSED = 256_000         # refuse to radio a monster (broker limit safety)
+TERRAIN_GRID_TOPIC = '/terrain/map_grid'   # persistent map-frame terrain ribbon
+TERRAIN_GRID_TLM_PERIOD_S = 2.0            # operator overview; 0.5 Hz, digest-gated
 CLOUD_TOPICS = ('/lidar3d/points', '/depthcam/points')   # the two 3D sensors
 CLOUD_MIN_PERIOD_S = 0.5             # process each sensor at most 2 Hz (CPU guard)
 CLOUD_SUBSAMPLE = 3                  # keep 1 in N points before transform (CPU guard)
@@ -136,7 +138,7 @@ def build_env_payload(entries: dict, now_ns: int, fresh_ns: int) -> dict | None:
     return {'class': 'env', **payload, 'stamp': newest_ns / 1e9}
 
 
-def build_map_payload(grid: 'OccupancyGrid', prev_digest: str) -> tuple:
+def build_map_payload(grid: 'OccupancyGrid', prev_digest: str, cls: str = 'map') -> tuple:
     """OccupancyGrid -> (tlm/map payload, digest), or (None, prev_digest).
 
     The whole known world in one envelope: zlib over the raw occupancy cells
@@ -152,7 +154,7 @@ def build_map_payload(grid: 'OccupancyGrid', prev_digest: str) -> tuple:
     if len(compressed) > MAP_MAX_COMPRESSED:
         return None, prev_digest
     q = grid.info.origin.orientation
-    return ({'class': 'map',
+    return ({'class': cls,
              'w': int(grid.info.width), 'h': int(grid.info.height),
              'res': float(grid.info.resolution),
              'ox': float(grid.info.origin.position.x),
@@ -269,6 +271,10 @@ class TelemetryAgent(ModuleAgent):
         self._map_msg = None
         self._map_digest = ''
         self._map_timer = None
+        self._terrain_grid_sub = None
+        self._terrain_grid_msg = None
+        self._terrain_grid_digest = ''
+        self._terrain_grid_timer = None
         # TF runs on its OWN node/clock: in sim the transforms are stamped in
         # sim time, but this agent keeps WALL clock (envelope expiry). A
         # wall-clock buffer evicts sim-time TF as ancient -> map frame vanishes.
@@ -425,6 +431,8 @@ class TelemetryAgent(ModuleAgent):
                                  durability=DurabilityPolicy.TRANSIENT_LOCAL)
             self._map_sub = self.create_subscription(
                 OccupancyGrid, MAP_TOPIC, self._on_map, map_qos)
+            self._terrain_grid_sub = self.create_subscription(
+                OccupancyGrid, TERRAIN_GRID_TOPIC, self._on_terrain_grid, map_qos)
             # 3D perception: both point clouds -> fused map-frame voxel world
             for topic in CLOUD_TOPICS:
                 self._cloud_subs.append(self.create_subscription(
@@ -473,6 +481,8 @@ class TelemetryAgent(ModuleAgent):
             self._terrain_timer = self.create_timer(TERRAIN_TLM_PERIOD_S, self._publish_terrain)
             self._autonomy_timer = self.create_timer(1.0, self._publish_autonomy)
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
+            self._terrain_grid_timer = self.create_timer(
+                TERRAIN_GRID_TLM_PERIOD_S, self._publish_terrain_grid)
             self._voxel_timer = self.create_timer(
                 VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
         # Mission executor timer — always active (missions arrive whether or not
@@ -502,6 +512,9 @@ class TelemetryAgent(ModuleAgent):
         if self._map_timer is not None:
             self.destroy_timer(self._map_timer)
             self._map_timer = None
+        if self._terrain_grid_timer is not None:
+            self.destroy_timer(self._terrain_grid_timer)
+            self._terrain_grid_timer = None
         if self._voxel_timer is not None:
             self.destroy_timer(self._voxel_timer)
             self._voxel_timer = None
@@ -621,6 +634,9 @@ class TelemetryAgent(ModuleAgent):
     def _on_map(self, msg: 'OccupancyGrid') -> None:
         self._map_msg = msg                 # keep latest; the timer does the work
 
+    def _on_terrain_grid(self, msg: 'OccupancyGrid') -> None:
+        self._terrain_grid_msg = msg        # keep latest; the timer does the work
+
     def _on_cloud(self, msg: 'PointCloud2', topic: str) -> None:
         now_ns = self.get_clock().now().nanoseconds
         if now_ns - self._last_cloud_ns.get(topic, 0) < int(CLOUD_MIN_PERIOD_S * 1e9):
@@ -680,6 +696,18 @@ class TelemetryAgent(ModuleAgent):
         payload, self._map_digest = build_map_payload(self._map_msg, self._map_digest)
         if payload is not None:
             self._publish_signed_telemetry('tlm/map', payload)
+
+    def _publish_terrain_grid(self) -> None:
+        """Sign + emit the accumulated map-frame terrain ribbon as tlm/terrain_grid.
+        The operator's persistent 'terrain sensed along the mission' overlay. Digest-
+        gated (radios only on change) + zlib over the sparse grid, so a 44 m world of
+        mostly-unsensed cells stays a few hundred bytes on the 4G link."""
+        if self._terrain_grid_msg is None:
+            return
+        payload, self._terrain_grid_digest = build_map_payload(
+            self._terrain_grid_msg, self._terrain_grid_digest, cls='terrain_grid')
+        if payload is not None:
+            self._publish_signed_telemetry('tlm/terrain_grid', payload)
 
     def _on_attitude(self, msg: Float32MultiArray) -> None:
         now_ns = self.get_clock().now().nanoseconds
