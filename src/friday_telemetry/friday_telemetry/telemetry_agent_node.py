@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import math
 import queue
@@ -37,7 +38,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from lifecycle_msgs.msg import State as LCState
 from nav_msgs.msg import OccupancyGrid, Odometry
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import Image, PointCloud2
 from sensor_msgs.msg import FluidPressure, Illuminance, NavSatFix, RelativeHumidity, Temperature
 from std_msgs.msg import Bool, Float32MultiArray, Int8, String
 from rclpy.duration import Duration
@@ -102,6 +103,9 @@ MAP_TLM_PERIOD_S = 10.0              # full snapshot, only when the map changed
 MAP_MAX_COMPRESSED = 256_000         # refuse to radio a monster (broker limit safety)
 TERRAIN_GRID_TOPIC = '/terrain/map_grid'   # persistent map-frame terrain ribbon
 TERRAIN_GRID_TLM_PERIOD_S = 2.0            # operator overview; 0.5 Hz, digest-gated
+KEYFRAME_TOPIC = '/ground_scan/image'      # bumper cam — the ground the wheels cross
+KEYFRAME_TLM_PERIOD_S = 8.0                # a visual postcard every 8 s
+KEYFRAME_MAX_PX = 160                      # thumbnail; a few KB on the 4G link
 CLOUD_TOPICS = ('/lidar3d/points', '/depthcam/points')   # the two 3D sensors
 CLOUD_MIN_PERIOD_S = 0.5             # process each sensor at most 2 Hz (CPU guard)
 CLOUD_SUBSAMPLE = 3                  # keep 1 in N points before transform (CPU guard)
@@ -163,6 +167,36 @@ def build_map_payload(grid: 'OccupancyGrid', prev_digest: str, cls: str = 'map')
              'enc': 'zlib-b64',
              'data': base64.b64encode(compressed).decode('ascii'),
              'stamp': _t2s(grid.header.stamp)}, digest)
+
+
+def build_keyframe_payload(msg: 'Image', prev_digest: str, max_px: int = KEYFRAME_MAX_PX) -> tuple:
+    """sensor_msgs/Image -> (tlm/terrain_keyframe payload, digest), or (None, prev_digest).
+
+    A downsized JPEG postcard of the ground the rover is on — visual grounding for the
+    terrain ribbon. The field rover has no on-board semantic seg yet, so this is the raw
+    camera view; the drive/caution/block overlay grafts on when perception hardware lands.
+    Digest-gated on the raw bytes so a parked rover does not re-radio the same frame.
+    """
+    if msg.encoding not in ('rgb8', 'bgr8'):
+        return None, prev_digest
+    raw = bytes(msg.data)
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest == prev_digest:
+        return None, prev_digest
+    try:
+        from PIL import Image as PImage
+    except ImportError:
+        return None, prev_digest
+    arr = np.frombuffer(raw, dtype=np.uint8).reshape(msg.height, msg.width, 3)
+    if msg.encoding == 'bgr8':
+        arr = arr[:, :, ::-1]
+    im = PImage.fromarray(arr)
+    im.thumbnail((max_px, max_px))
+    buf = io.BytesIO()
+    im.save(buf, format='JPEG', quality=70)
+    return ({'class': 'keyframe', 'w': im.width, 'h': im.height,
+             'enc': 'jpeg-b64', 'data': base64.b64encode(buf.getvalue()).decode('ascii'),
+             'stamp': _t2s(msg.header.stamp)}, digest)
 
 
 def build_attitude_payload(values, stamp_s: float) -> dict | None:
@@ -275,6 +309,10 @@ class TelemetryAgent(ModuleAgent):
         self._terrain_grid_msg = None
         self._terrain_grid_digest = ''
         self._terrain_grid_timer = None
+        self._keyframe_sub = None
+        self._keyframe_msg = None
+        self._keyframe_digest = ''
+        self._keyframe_timer = None
         # TF runs on its OWN node/clock: in sim the transforms are stamped in
         # sim time, but this agent keeps WALL clock (envelope expiry). A
         # wall-clock buffer evicts sim-time TF as ancient -> map frame vanishes.
@@ -433,6 +471,8 @@ class TelemetryAgent(ModuleAgent):
                 OccupancyGrid, MAP_TOPIC, self._on_map, map_qos)
             self._terrain_grid_sub = self.create_subscription(
                 OccupancyGrid, TERRAIN_GRID_TOPIC, self._on_terrain_grid, map_qos)
+            self._keyframe_sub = self.create_subscription(
+                Image, KEYFRAME_TOPIC, self._on_keyframe, qos.sensor_stream())
             # 3D perception: both point clouds -> fused map-frame voxel world
             for topic in CLOUD_TOPICS:
                 self._cloud_subs.append(self.create_subscription(
@@ -483,6 +523,8 @@ class TelemetryAgent(ModuleAgent):
             self._map_timer = self.create_timer(MAP_TLM_PERIOD_S, self._publish_map)
             self._terrain_grid_timer = self.create_timer(
                 TERRAIN_GRID_TLM_PERIOD_S, self._publish_terrain_grid)
+            self._keyframe_timer = self.create_timer(
+                KEYFRAME_TLM_PERIOD_S, self._publish_keyframe)
             self._voxel_timer = self.create_timer(
                 VOXEL_TLM_PERIOD_S, self._publish_voxels, callback_group=self._cloud_cbg)
         # Mission executor timer — always active (missions arrive whether or not
@@ -515,6 +557,13 @@ class TelemetryAgent(ModuleAgent):
         if self._terrain_grid_timer is not None:
             self.destroy_timer(self._terrain_grid_timer)
             self._terrain_grid_timer = None
+        if self._keyframe_timer is not None:
+            self.destroy_timer(self._keyframe_timer)
+            self._keyframe_timer = None
+        self._keyframe_sub = None
+        self._keyframe_msg = None
+        self._keyframe_digest = ''
+        self._keyframe_timer = None
         if self._voxel_timer is not None:
             self.destroy_timer(self._voxel_timer)
             self._voxel_timer = None
@@ -708,6 +757,18 @@ class TelemetryAgent(ModuleAgent):
             self._terrain_grid_msg, self._terrain_grid_digest, cls='terrain_grid')
         if payload is not None:
             self._publish_signed_telemetry('tlm/terrain_grid', payload)
+
+    def _on_keyframe(self, msg: 'Image') -> None:
+        self._keyframe_msg = msg
+
+    def _publish_keyframe(self) -> None:
+        """Sign + emit a JPEG postcard of the ground as tlm/terrain_keyframe."""
+        if self._keyframe_msg is None:
+            return
+        payload, self._keyframe_digest = build_keyframe_payload(
+            self._keyframe_msg, self._keyframe_digest)
+        if payload is not None:
+            self._publish_signed_telemetry('tlm/terrain_keyframe', payload)
 
     def _on_attitude(self, msg: Float32MultiArray) -> None:
         now_ns = self.get_clock().now().nanoseconds
