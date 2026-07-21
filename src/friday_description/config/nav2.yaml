@@ -112,6 +112,10 @@ global_costmap:
           marking: true
           raytrace_max_range: 12.0
           obstacle_max_range: 10.0
+          # outdoor: the mast 2D scan tilts into ground/reeds when the rover pitches on
+          # uneven terrain — ignore sub-0.3 m (pitch/self) hits so it isn't trapped in-place
+          obstacle_min_range: 0.30
+          raytrace_min_range: 0.30
       terrain_layer:
         plugin: friday_nav_layers::TerrainLayer
         enabled: true
@@ -119,7 +123,7 @@ global_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.40
 
 local_costmap:
   local_costmap:
@@ -141,9 +145,12 @@ local_costmap:
         observation_sources: scan
         scan:
           topic: /scan
+          data_type: LaserScan
           max_obstacle_height: 2.0
           clearing: true
           marking: true
+          obstacle_min_range: 0.30
+          raytrace_min_range: 0.30
       terrain_layer:
         plugin: friday_nav_layers::TerrainLayer
         enabled: true
@@ -151,4 +158,4 @@ local_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        inflation_radius: 0.40
