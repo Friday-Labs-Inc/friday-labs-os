@@ -11,9 +11,9 @@ We will run the same neural networks on each candidate computer, under the same 
 
 | ID | Board | Software | Approx. cost (Nov 2026) | Why it is in |
 |---|---|---|---|---|
-| **A** | Jetson Orin Nano Super 8 GB dev kit | JetPack 7.2.1 (Ubuntu 24.04, TensorRT 10.16), ROS 2 Jazzy native | $399 / ~₹55,000 incl. GST (one retailer; recheck) | Full GPU; runs the fusion network unmodified. |
-| **B** | Raspberry Pi 5 8 GB + AI HAT+ 26 TOPS (Hailo-8) + Active Cooler | Ubuntu 24.04 + HailoRT 4.2x installed by hand; Raspberry Pi OS Trixie as reference | ~₹8–10k + ~₹11–15k ≈ **₹20–25k** | Half the price, lower power; needs the network split around a CPU step. |
-| B′ | Same with AI HAT+ 13 TOPS (Hailo-8L) | as B | ~₹6–10k for the HAT | Only if B passes with large margin. |
+| **A** | Jetson Orin Nano Super 8 GB dev kit | JetPack 7.2.1 (Ubuntu 24.04, TensorRT 10.16), ROS 2 Jazzy native | $399 / **~₹47k incl. GST** (authorised: Tanna TechBiz) | Full GPU; runs the fusion network unmodified. |
+| **B** | Raspberry Pi 5 8 GB + AI HAT+ 26 TOPS (Hailo-8) + Active Cooler | Ubuntu 24.04 + HailoRT 4.2x installed by hand; Raspberry Pi OS Trixie as reference | ~₹20k + ~₹10k + ~₹1.6k (cooler, PSU) ≈ **₹32k** | Lower price and power; needs the network split around a CPU step. |
+| B′ | Same with AI HAT+ 13 TOPS (Hailo-8L) | as B | ~₹6.4k for the HAT | Only if B passes with large margin. |
 | **C** | Raspberry Pi 4B 8 GB, CPU only (already owned) | Ubuntu 24.04 + ONNX Runtime | ₹0 | Baseline: shows what we have today. |
 
 **Dropped:** Coral USB (official runtime abandoned since 2021 at Python 3.9; discontinued at DigiKey; 8 MB on-chip memory too small for fusion).
@@ -73,15 +73,20 @@ Results are kept in `docs/build/bench-results/` with raw logs; the [AI Inference
 
 ## Shopping List
 
-| Item | For | Approx. |
-|---|---|---|
-| Jetson Orin Nano Super dev kit | A | ~₹55,000 |
-| Raspberry Pi 5 8 GB + Active Cooler + 27 W PSU | B | ~₹10–11k |
-| Raspberry Pi AI HAT+ 26 TOPS | B | ~₹11–15k |
-| Logging USB-C PD power meter, logging DC power meter | all | ~₹3–6k |
-| 64 GB+ microSD / NVMe for each board | all | ~₹2–4k |
+Authorised sellers where they exist (Raspberry Pi approved-reseller list; NVIDIA's India partners). Prices checked 10 Nov 2026, several from search snapshots; recheck at checkout.
 
-Prices are retailer listings without dates (Nov 2026); recheck at purchase. B′ (13 TOPS HAT) only if B passes with margin.
+| Item | For | Seller (authorised) | Approx. incl. GST |
+|---|---|---|---|
+| Jetson Orin Nano Super dev kit | A | Tanna TechBiz (NVIDIA partner, importer) or RP Tech India | ~₹47,200 |
+| Raspberry Pi 5 8 GB | B | Thingbits / Aryabot / Robu | ~₹20,000 |
+| Active Cooler | B | e2u / Silverline | ~₹400–450 |
+| Official 27 W USB-C PSU (India plug) | B | Thingbits / Robocraze | ~₹1,000–1,200 |
+| AI HAT+ 26 TOPS | B | Silverline / e2u / element14 | ~₹10,000 |
+| M.2 HAT+ + 128 GB NVMe (or 64 GB A2 microSD) | B | e2u / Silverline (HAT); NVMe via marketplace | ~₹800 + ~₹2,600 |
+| 128 GB NVMe (M.2 2280) | A | marketplace (no authorised channel at 128 GB) | ~₹2,600 |
+| FNIRSI FNB58 (Bluetooth) USB-C logging meter | all | Fabtolab / ToolWorld (importers) | ~₹4,800–4,900 |
+
+**Total ≈ ₹90k.** No logging DC meter for the Jetson's barrel jack is sold in India; instead power the Jetson from a 20 V USB-C PD charger through the FNB58 and a PD-trigger-to-5.5×2.5 mm barrel cable (confirm the devkit's input range before use), so one meter logs every board.
 
 ## Risks
 
