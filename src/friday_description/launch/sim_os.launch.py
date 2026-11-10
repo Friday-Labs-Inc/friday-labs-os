@@ -90,8 +90,13 @@ def generate_launch_description() -> LaunchDescription:
                             '-z', LaunchConfiguration('spawn_z')])
 
     def spawner(name):
+        # generous timeouts: with the GUI and a heavy world (Baylands) the sim runs
+        # slower than real time and the default 5 s switch timeout left the wheel
+        # controllers inactive (rover accepted commands but never moved)
         return Node(package='controller_manager', executable='spawner', output='screen',
-                    arguments=[name, '--param-file', controllers_yaml])
+                    arguments=[name, '--param-file', controllers_yaml,
+                               '--controller-manager-timeout', '60',
+                               '--switch-timeout', '30', '--service-call-timeout', '30'])
 
     jsb = spawner('joint_state_broadcaster')
     wheels = spawner('wheel_velocity_controller')

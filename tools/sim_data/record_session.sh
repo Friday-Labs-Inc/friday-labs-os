@@ -5,6 +5,7 @@
 #
 #   tools/sim_data/record_session.sh <world.sdf> <minutes> <seed> <out_dir>
 #   e.g. tools/sim_data/record_session.sh baylands.sdf 10 1 /data/bags
+#   HEADLESS=false shows the Gazebo window (container needs DISPLAY + /tmp/.X11-unix)
 #
 # Output: <out_dir>/<world>_s<seed>/ (MCAP rosbag)
 set -euo pipefail
@@ -13,10 +14,21 @@ NAME="${WORLD%.sdf}_s${SEED}"
 set +u; source /opt/ros/jazzy/setup.bash; source /ws/install/setup.bash; set -u   # ROS setup scripts read unset vars
 mkdir -p "$OUT"
 
-ros2 launch friday_description sim_os.launch.py world:="$WORLD" headless:=true terrain:=true gps:=false &
+ros2 launch friday_description sim_os.launch.py world:="$WORLD" headless:="${HEADLESS:-true}" terrain:=true gps:=false &
 SIM=$!; ADAPTER=""; BAG=""
 trap 'kill $SIM $ADAPTER $BAG 2>/dev/null || true; wait 2>/dev/null || true' EXIT
 sleep 45   # gz up, controllers spawned (20 s delay), core autostart (10 s), lease issued
+
+# refuse to record a rover that cannot move: both drive controllers must be active
+for _ in $(seq 1 30); do
+  ACTIVE=$(ros2 control list_controllers 2>/dev/null | grep -cE "(wheel_velocity|steer_position)_controller.*active" || true)
+  [ "$ACTIVE" -ge 2 ] && break
+  sleep 3
+done
+if [ "${ACTIVE:-0}" -lt 2 ]; then
+  echo "ABORT: drive controllers not active after 90 s; not recording" >&2
+  exit 1
+fi
 
 ros2 run friday_locomotion nav_motion_adapter &
 ADAPTER=$!
