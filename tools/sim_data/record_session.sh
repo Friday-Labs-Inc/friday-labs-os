@@ -39,7 +39,7 @@ ros2 bag record -s mcap -o "$OUT/$NAME" \
   /depthcam/image /depthcam/depth_image /depthcam/camera_info \
   /scan /lidar3d/points /ground_scan/points /imu \
   /terrain/costmap /odometry/filtered /odom /model/mark1/pose \
-  /cmd_vel_nav /mark1/locomotion/cmd_motion /tf /tf_static &
+  /cmd_vel_nav /mark1/locomotion/cmd_motion /mark1/contacts /tf /tf_static &
 BAG=$!
 sleep 3
 

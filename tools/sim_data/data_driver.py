@@ -6,10 +6,14 @@ watchdog. Nothing here can bypass safety.
 
 Behaviour (deliberately varied, so the dataset holds turns, slopes,
 near-misses and recoveries, not just straight lines):
-  - cruise at ~0.3 m/s with slowly wandering curvature
-  - if friday_terrain reports high cost in the corridor ahead, or the rover
-    is stuck (true pose barely moved), back up while turning, then go on
-  - stay within RADIUS_M of the start; steer home when outside
+  - explore: head for a random goal up to RADIUS_M from the start, with a
+    little steering noise; pick a new goal on arrival, after GOAL_TIMEOUT_S,
+    or after backing away from something. Pure random wandering kept circling
+    one patch of the world and filled the dataset with near-duplicate views.
+  - if friday_terrain reports lethal ground in the corridor ahead, or
+    the rover is blocked (real progress ALONG ITS HEADING far below what was
+    commanded, e.g. pinned against a wall and scraping sideways), back up
+    while turning, then choose a new goal
 
 Also publishes autonomy level L1 (ASSISTED), which the telemetry agent
 normally provides; data sessions run without telemetry.
@@ -30,9 +34,13 @@ from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Int8
 
 CRUISE_MPS, MAX_TURN_RPS = 0.3, 0.6
+# lethal only: reacting to STEEP (70) made the rover back up every ~1.6 s on Baylands
+# hills (385 back-ups in 10 min). Unclimbable walls are caught by the blocked check.
 DANGER_COST, AHEAD_M, HALF_WIDTH_M = 90, 1.2, 0.35
-STUCK_WINDOW_S, STUCK_MOVE_M = 3.0, 0.05
-BACKUP_S, RADIUS_M = 1.5, 25.0
+STUCK_WINDOW_S, MIN_PROGRESS = 1.5, 0.3   # blocked if <30% of commanded distance made good
+BACKUP_S, RADIUS_M = 1.5, 40.0
+# gentle heading control: a gain of 1.2 pinned steering at full lock 55% of the time
+GOAL_REACHED_M, GOAL_TIMEOUT_S, HEADING_GAIN, GOAL_TURN_RPS = 2.0, 90.0, 0.5, 0.35
 
 
 class DataDriver(Node):
@@ -42,7 +50,8 @@ class DataDriver(Node):
         self.rng = random.Random(seed)
         self.end_ns = self.get_clock().now().nanoseconds + int(minutes * 60e9)
         self.turn, self.backup_until, self.pose, self.start = 0.0, 0, None, None
-        self.history: list[tuple[int, float, float]] = []
+        self.goal, self.goal_since = None, 0
+        self.history: list[tuple[int, float, float, float]] = []  # (t, x, y, commanded v)
         self.grid: OccupancyGrid | None = None
 
         self.cmd = self.create_publisher(Twist, '/cmd_vel_nav', 10)
@@ -75,12 +84,33 @@ class DataDriver(Node):
         return False
 
     def stuck(self, now: int) -> bool:
+        """Blocked = progress along the heading is far below what was commanded.
+        Plain distance moved is not enough: sliding sideways along a curb moves
+        the rover but makes no progress, and the wheels just spin."""
         if self.pose is None:
             return False
-        self.history.append((now, self.pose[0], self.pose[1]))
+        self.history.append((now, self.pose[0], self.pose[1], CRUISE_MPS))
         self.history = [h for h in self.history if now - h[0] < STUCK_WINDOW_S * 1e9]
-        t0, x0, y0 = self.history[0]
-        return now - t0 > (STUCK_WINDOW_S - 0.2) * 1e9 and math.hypot(self.pose[0] - x0, self.pose[1] - y0) < STUCK_MOVE_M
+        t0, x0, y0, _ = self.history[0]
+        if now - t0 < (STUCK_WINDOW_S - 0.2) * 1e9:
+            return False
+        yaw = self.pose[2]
+        progress = math.cos(yaw) * (self.pose[0] - x0) + math.sin(yaw) * (self.pose[1] - y0)
+        expected = sum(h[3] for h in self.history) * 0.1  # one history entry per 0.1 s tick
+        return progress < MIN_PROGRESS * expected
+
+    def steer_to_goal(self, now: int) -> float:
+        """Head for a random goal near the start, with a little noise for variety."""
+        if self.pose is None or self.start is None:
+            return 0.0
+        if (self.goal is None or math.dist(self.pose[:2], self.goal) < GOAL_REACHED_M
+                or now - self.goal_since > GOAL_TIMEOUT_S * 1e9):
+            r, a = RADIUS_M * math.sqrt(self.rng.random()), self.rng.uniform(-math.pi, math.pi)
+            self.goal, self.goal_since = (self.start[0] + r * math.cos(a), self.start[1] + r * math.sin(a)), now
+        bearing = math.atan2(self.goal[1] - self.pose[1], self.goal[0] - self.pose[0])
+        err = (bearing - self.pose[2] + math.pi) % (2 * math.pi) - math.pi
+        noisy = HEADING_GAIN * err + self.rng.gauss(0, 0.1)
+        return max(-GOAL_TURN_RPS, min(GOAL_TURN_RPS, noisy))
 
     def tick(self) -> None:
         now = self.get_clock().now().nanoseconds
@@ -94,13 +124,9 @@ class DataDriver(Node):
             self.backup_until = now + int(BACKUP_S * 1e9)
             self.turn = self.rng.choice([-1, 1]) * MAX_TURN_RPS
             self.history.clear()
+            self.goal = None                       # whatever blocked us, go somewhere else
         else:
-            # slow random walk in curvature: varied but smooth paths
-            self.turn = max(-MAX_TURN_RPS, min(MAX_TURN_RPS, 0.95 * self.turn + self.rng.gauss(0, 0.08)))
-            if self.pose and self.start and math.dist(self.pose[:2], self.start) > RADIUS_M:
-                home = math.atan2(self.start[1] - self.pose[1], self.start[0] - self.pose[0])
-                err = (home - self.pose[2] + math.pi) % (2 * math.pi) - math.pi
-                self.turn = max(-MAX_TURN_RPS, min(MAX_TURN_RPS, 1.5 * err))
+            self.turn = self.steer_to_goal(now)
             twist.linear.x, twist.angular.z = CRUISE_MPS, self.turn
         self.cmd.publish(twist)
 

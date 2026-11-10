@@ -82,7 +82,9 @@ def generate_launch_description() -> LaunchDescription:
                              '/depthcam/image@sensor_msgs/msg/Image[gz.msgs.Image',
                              '/depthcam/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
                              '/depthcam/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-                             '/model/mark1/pose@geometry_msgs/msg/PoseStamped[gz.msgs.Pose'])
+                             '/model/mark1/pose@geometry_msgs/msg/PoseStamped[gz.msgs.Pose',
+                             # sim-only touch sensing: wheels/body against walls, kerbs, posts
+                             '/mark1/contacts@ros_gz_interfaces/msg/Contacts[gz.msgs.Contacts'])
     spawn = Node(package='ros_gz_sim', executable='create', output='screen',
                  arguments=['-topic', 'robot_description', '-name', 'mark1',
                             '-x', LaunchConfiguration('spawn_x'),
