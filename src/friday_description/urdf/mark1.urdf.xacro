@@ -139,6 +139,15 @@
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <parameters>$(arg controllers_yaml)</parameters>
     </plugin>
+    <!-- sim-only ground truth (/model/mark1/pose): the true pose, used to
+         make self-supervised labels (where it really drove, wheel slip).
+         Never an input to the OS — real rovers have no such topic. -->
+    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_link_pose>false</publish_link_pose>
+      <publish_model_pose>true</publish_model_pose>
+      <use_pose_vector_msg>false</use_pose_vector_msg>
+      <update_frequency>20</update_frequency>
+    </plugin>
   </gazebo>
 
   <!-- ================= Phase-0 senses (sim) ==================
