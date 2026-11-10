@@ -51,16 +51,17 @@ The [AI Inference Location](AI Inference Location.md) addendum locks **Pi 5 + Co
 
 - The Core Hub actually built is a **Pi 4B** with no accelerator (see [Mark 1 Compute Architecture](../architecture/Mark 1 Compute Architecture.md)).
 - The 2030 Horizon document already calls Coral "a dead-end by 2029".
-- The Jetson price used to reject it ($500) is out of date: **Jetson Orin Nano Super is $249** (Dec 2024).
-- **To verify before buying:** whether the Coral Edge TPU Python runtime supports Python 3.12, which ROS 2 Jazzy on Ubuntu 24.04 uses.
+- The Jetson price used to reject it ($500) has moved twice: the Orin Nano Super launched at $249 (Dec 2024), then NVIDIA raised it to **$399** (Jul 2026); one Indian retailer lists ~₹55,000 incl. GST.
+- **Coral is effectively abandoned:** the official runtime stopped in 2021 at Python 3.9 (ROS 2 Jazzy uses 3.12; only community wheels exist) and DigiKey lists the stick as discontinued.
+- **Hailo cannot run `GridSample`**, the usual camera-to-BEV step; it must run on the CPU between two NPU halves.
 
 | Option | Approx. cost | AI throughput | Power | Notes |
 |---|---|---|---|---|
-| Pi 4B + Coral USB | ~$60 (Coral) | 4 TOPS | +1–2 W | Small models only; runtime support risk. |
+| Pi 4B + Coral USB | ~$60 (Coral) | 4 TOPS | +1–2 W | Dropped: abandoned runtime, too small for fusion. |
 | Pi 5 + Hailo AI HAT+ | ~$80 + $70–110 | 13–26 TOPS | ~5–8 W | No CUDA; good for detection and segmentation. |
-| Jetson Orin Nano Super | $249 | 67 TOPS (sparse) | 7–25 W | CUDA/TensorRT; Isaac ROS supported on Humble only (not Jazzy) on Orin as of 2026. |
+| Jetson Orin Nano Super | $399 (~₹55k) | 67 TOPS (sparse) | 7–25 W | CUDA/TensorRT; JetPack 7.2.1 is Ubuntu 24.04, so ROS 2 Jazzy runs natively. |
 
-**Proposal:** run the acceptance test from the AI Inference Location addendum (≥ 15 fps, p99 ≤ 80 ms) on Pi 5 + Hailo and on Orin Nano Super with the same exported model, then revise that addendum. Prices are from 2024–2026 sources and must be re-checked in INR at purchase.
+**Proposal:** run the [AI Compute Bench Test Plan](../build/AI Compute Bench Test Plan.md) on Pi 5 + Hailo and on Orin Nano Super with the same exported models, then revise the AI Inference Location addendum. Prices are from 2024–2026 sources and must be re-checked in INR at purchase.
 
 ## Architecture
 
