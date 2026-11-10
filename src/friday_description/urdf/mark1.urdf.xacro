@@ -47,6 +47,22 @@
     </inertial>
   </link>
 
+  <!-- ===== sim-only touch sensing (/mark1/contacts) =====
+       Every wheel and the body report what they touch. Ground contact is normal;
+       a wheel or the body pressing on a wall, kerb or post is the label the mast
+       camera cannot see (the wall is below its view). Training data only: the
+       real rover gets the same signal from motor current, slip and suspension angles. -->
+  <xacro:macro name="contact_sensor" params="link">
+    <sensor name="${link}_contact" type="contact">
+      <contact><collision>${link}_collision</collision></contact>
+      <topic>/mark1/contacts</topic>
+      <update_rate>20</update_rate>
+      <always_on>true</always_on>
+    </sensor>
+  </xacro:macro>
+
+  <gazebo reference="base_link"><xacro:contact_sensor link="base_link"/></gazebo>
+
   <!-- ===== a wheel link (cylinder axis along Y) ===== -->
   <xacro:macro name="wheel_link" params="name">
     <link name="wheel_${name}">
@@ -65,6 +81,7 @@
     </link>
     <gazebo reference="wheel_${name}">
       <mu1>1.2</mu1><mu2>1.2</mu2><kp>1e6</kp><kd>100.0</kd>
+      <xacro:contact_sensor link="wheel_${name}"/>
     </gazebo>
   </xacro:macro>
 
@@ -138,6 +155,15 @@
     <plugin filename="gz_ros2_control-system"
             name="gz_ros2_control::GazeboSimROS2ControlPlugin">
       <parameters>$(arg controllers_yaml)</parameters>
+    </plugin>
+    <!-- sim-only ground truth (/model/mark1/pose): the true pose, used to
+         make self-supervised labels (where it really drove, wheel slip).
+         Never an input to the OS — real rovers have no such topic. -->
+    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_link_pose>false</publish_link_pose>
+      <publish_model_pose>true</publish_model_pose>
+      <use_pose_vector_msg>false</use_pose_vector_msg>
+      <update_frequency>20</update_frequency>
     </plugin>
   </gazebo>
 
