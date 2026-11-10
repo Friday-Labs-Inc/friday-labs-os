@@ -29,6 +29,7 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Spark Authority and friday-core-os Definition](addendums/Spark Authority and friday-core-os Definition.md) — Bay is launch interface, not flight brain; `friday-core-os` is the systemd target.
 - [Mechanical Design Reference](addendums/Mechanical Design Reference.md) — NASA Perseverance rover as the locked mechanical-anatomy reference; 6 drive + 4 corner steer; four locomotion modes.
 - [mmWave Human Detection](addendums/mmWave Human Detection.md) — RD-03D mmWave radar baseline on the Lab Deck; fog/dark/foliage-piercing detection complementing camera + LiDAR; LoRa sentry network deferred to Mark 2.
+- [Learned Perception and ML Pipeline](addendums/Learned Perception and ML Pipeline.md) — *proposal:* neural nets add costs and detections but never command motors or overrule geometry; `friday-ml` training repo with seeded, closed-loop exams; re-decide AI compute first.
 
 **Electronics (deck-by-deck electrical design):**
 - [Electronics Backbone](electronics/Electronics Backbone.md) — shared electrical foundation: distributed power tree, NC-loop physical E-stop, single-point star ground, central fusing, M8/M12 bulkhead connectors, custom-PCB build medium. **Read before the per-deck docs.**
@@ -42,6 +43,7 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Locomotion Deck — Build Package](build/Locomotion Deck - Build Package.md) — bottom deck: electrical BOM, ESP32-S3 pinout/wiring map, power-domain & isolation diagram, assembly + bench bring-up order. Built on JPL Open Source Rover mechanics + the Friday Labs locked electronics stack.
 - [Locomotion Deck — Pin-Level Schematic](build/Locomotion Deck - Pin-Level Schematic.md) — net-by-net schematic spec: ESP32-S3 pin assignment, ISO7741 isolation channel map, every connection, passives/protection with values, fail-safe-on-signal-loss nets, and a KiCad-verify checklist.
 - [Power & E-stop Backbone — Build Package](build/Power and E-stop Backbone - Build Package.md) — the shared electrical foundation: 4S Li-ion + smart BMS, RAW/SW power tree, fail-open E-stop (contactor + solid-state pre-switch), central fusing, bus-fail signal, star ground, M12 inter-deck harness. Build before bench-powering any deck.
+- [AI Compute Bench Test Plan](build/AI Compute Bench Test Plan.md) — *proposal:* Jetson Orin Nano Super vs Pi 5 + Hailo-8 vs Pi 4B baseline, same proxy fusion + detector models, 30 min sustained under real ROS load, decision rule fixed before testing; tools in `tools/bench/`.
 - [Deck Layout, Sizing & CG](build/Deck Layout, Sizing and CG.md) — **proposed** deck packaging + electronics-driven sizing check + analytical center-of-gravity (CG ~16 mm rear, ~217 mm high; tip angles ~53°/55° — very stable). Closes the deck-footprint open item; 3D verification pending in Blender.
 
 **Onboarding (read after the dossier):**
