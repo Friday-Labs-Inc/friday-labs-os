@@ -1,7 +1,7 @@
 # Learned Perception and ML Pipeline
 
 > How Mark 1 adds neural networks without weakening its safety core: where learned models plug in, where they may never plug in, how they are trained and proven, and what has to be re-decided first. Proposes a re-engineering of the AI layer; nothing here is locked until reviewed.
-> **Version:** Draft 0.1 (proposal) · **Purpose:** Plan the learned-perception layer for Phase 5 and record the evidence behind it.
+> **Version:** Draft 0.2 (proposal) · **Purpose:** Plan the learned-perception layer for Phase 5 and record the evidence behind it.
 
 ## In Plain English
 
@@ -30,7 +30,7 @@ From the `rover` learning sandbox (Donkey simulator, RTX 3070, Nov 2026) and two
 | **Role of learned models** | Perception only: they publish costs and detections. No learned output reaches `MotionCommand`. |
 | **Final safety authority** | Geometric classifier (`friday_terrain`) + Nav2 + ESP32 watchdog, unchanged. |
 | **Fusion rule in TerrainLayer** | `cost = max(geometric_cost, learned_cost)`. A model can make ground *more* expensive; it can never make geometrically lethal ground passable. Learned cost is capped below `LETHAL` unless a second, independent source agrees. |
-| **First models** | (1) terrain-type segmentation, (2) person/vehicle detection with on-device face blurring. |
+| **First models** | (1) a multi-sensor fusion network (camera + depth + LiDAR) that draws a top-down terrain cost map, see [Multi-Sensor Fusion Design](#multi-sensor-fusion-design); (2) a separate person/vehicle detector with on-device face blurring. |
 | **New ROS package** | `friday_perception`: lifecycle inference nodes, `model_version` in `HealthStatus`, `FaultReport` on accelerator loss (as [AI Inference Location](AI Inference Location.md) already requires). |
 | **Training lives elsewhere** | New repo `friday-ml`: datasets, training, evaluation, signed model export. Heavy ML dependencies never enter `friday-core-os`. |
 | **Model format** | ONNX as the exchange format; compiled per target (TensorRT, Hailo, LiteRT) at release time. Matches the "hardware-agnostic inference slot" in [Mark 1 - 2030 Technology Horizon](../strategy/Mark 1 - 2030 Technology Horizon.md). |
@@ -65,13 +65,48 @@ The [AI Inference Location](AI Inference Location.md) addendum locks **Pi 5 + Co
 ## Architecture
 
 ```
- bumper RGB-D ─┬─► friday_terrain (geometry) ──────────┐
-               │                                        ├─► TerrainLayer: max(geo, learned) ─► Nav2 ─► MotionCommand ─► lease + watchdog
- mast camera ──┴─► friday_perception/terrain_seg ──────┘
- mast camera ────► friday_perception/detect + blur ───► DetectedObjectArray ─► mission / telemetry
+ bumper RGB-D ───────────────► friday_terrain (geometry) ─────────────┐
+ camera ─┐                                                             ├─► TerrainLayer: max(geo, learned if confident) ─► Nav2 ─► MotionCommand ─► lease + watchdog
+ depth  ─┼─► friday_perception/terrain_fusion (BEV map + confidence) ─┘
+ LiDAR  ─┘        ▲ EKF odometry (2 s memory)
+ camera ─────► friday_perception/detect + blur ─► DetectedObjectArray ─► mission / telemetry   (+ mmWave radar later)
 ```
 
 `friday_perception` nodes follow the `lifecycle-node-scaffold` skill and the four locked QoS profiles; detections use `state_default`.
+
+## Multi-Sensor Fusion Design
+
+> Agreed in a design review on 2026-11-10. In plain English: one network looks at the camera, depth camera and LiDAR **together** and draws a top-down map of how costly each 10 cm square of ground is, plus how sure it is.
+
+| # | Decision | Agreed |
+|---|---|---|
+| 1 | Output | A bird's-eye-view (BEV) terrain cost map into the TerrainLayer. Informs Nav2; never drives. |
+| 2 | Fusion style | Mid-level BEV fusion: one small encoder per sensor; features meet in one shared top-down grid and are learned jointly (a slimmed BEVFusion-style network). |
+| 3 | Inputs | Camera + depth + LiDAR. IMU, wheel odometry and GPS stay in the EKF; wheel slip becomes a free training label. mmWave radar stays on the detection side. |
+| 4 | Sensor failure | Trained with random sensor dropout so any subset still works, with lower confidence. If all learned inputs fail: geometry-only, plus a `FaultReport`. |
+| 5 | Compute | Decided by bench test: the same ONNX model on Pi 5 + Hailo and on Orin Nano Super. BEV ops (view transform, point scatter) may not map well to Hailo; that is part of the test. |
+| 6 | LiDAR | Product rover: depth camera + 2D LiDAR (RPLIDAR C1 class, ~$69). 3D LiDAR only on the teacher kit. |
+| 7 | Labels | Self-supervised first: geometric classifier output, wheel slip, and where the rover actually drove safely. Humans label a small test set; Jev pre-labels terrain types for review. |
+| 8 | Grid | 10 cm cells, the same as `friday_terrain`, extended to ~10 m ahead (cameras see farther than the 6 m geometric grid). |
+| 9 | Speed | 5 Hz, ≤ 100 ms per map. At 0.3–0.5 m/s the rover moves ≤ one cell between maps. Implies a model of a few million parameters. |
+| 10 | Teacher | A bolt-on mast kit (3D LiDAR + recorder) for data runs on any Mark 1. A teacher network trained with 3D LiDAR teaches the cheap student network (distillation, "learning by cheating", Chen 2019). |
+| 11 | Data | Gazebo (URDF already has a 3D LiDAR and RGB-D) to build and debug the pipeline end to end; the shipped model is trained on real field recordings. |
+| 12 | Confidence | Every cell carries a confidence. Below a threshold the learned cost is dropped there; low-confidence areas are flagged as "never seen" for the next data run. |
+| 13 | Memory | ~2 s of memory: previous maps are shifted by EKF odometry and merged with the new frame (fills the blind spot under the chassis, steadies flicker). |
+| 14 | Calibration | Factory calibration with a target board at assembly; a boot self-check raises a `FaultReport` if camera–LiDAR alignment drifted; training adds small alignment jitter. |
+| 15 | Where it runs | Core Hub, per [Sensor Ownership](Sensor Ownership.md). The bench-test winner becomes the Core Hub board. |
+| 16 | Detection | A separate detector (RT-DETR v2 r18, Apache-2.0) on the camera with on-device face blurring; mmWave radar detections added later. |
+
+**Fusion rule (unchanged):** `cost = max(geometric_cost, learned_cost)`, where `learned_cost` counts only if its confidence is above threshold, and a learned cost alone can never mark ground lethal.
+
+**Starting points on Hugging Face (licences checked 2026-11-10):**
+
+| Model | Use | Licence |
+|---|---|---|
+| `AutowareFoundation/bevfusion` | Camera + LiDAR BEV fusion reference to slim down | Apache-2.0 |
+| `depth-anything/Depth-Anything-V2-Small-hf` | Monocular depth to densify sparse depth/LiDAR | Apache-2.0 (Small only; Base/Large are non-commercial) |
+| `PekingU/rtdetr_v2_r18vd` | Person/vehicle detection | Apache-2.0 |
+| `nvidia/segformer-b0-*`, `GAIA-URJC/Rellis3D_*`, `JasonTStanley/RUGD-Segformer` | Off-road segmentation references | NVIDIA licence / CC-BY-NC-SA / none listed: research only, not for the product |
 
 ## The Training Pipeline (`friday-ml`)
 
@@ -110,7 +145,7 @@ Jev (TypeSafe's System One model) answers typed questions about text and images:
 |---|---|---|
 | P0 | Revised AI Inference Location addendum | Bench test of the chosen board meets ≥ 15 fps, p99 ≤ 80 ms with a real exported model. |
 | P1 | `friday-ml` repo + data recording | 3 field sessions recorded and versioned; human-labelled test set exists. |
-| P2 | Terrain segmentation in `friday_perception` + TerrainLayer fusion | In the held-out Gazebo world, interventions do not increase vs geometry-only; on real test frames, mIoU reported per class. |
+| P2 | Fusion network (`terrain_fusion`) in `friday_perception` + TerrainLayer fusion | Runs at 5 Hz, ≤ 100 ms on the chosen board; in the held-out Gazebo world, interventions do not increase vs geometry-only; on real test grids, per-class accuracy reported; still works with any one sensor removed. |
 | P3 | Detection + on-device blurring | Detection mAP on real test frames; no unblurred face in any stored frame (audit). |
 | P4 | Self-supervised traversability (research) | Beats geometry-only cost on the field test set without increasing interventions. |
 
@@ -118,13 +153,16 @@ Jev (TypeSafe's System One model) answers typed questions about text and images:
 
 - Board choice (P0) and the Coral runtime check.
 - Licence for the detector (Ultralytics YOLO is AGPL unless licensed; alternatives with permissive licences).
-- Whether `terrain_seg` runs on the Core Hub or the Lab Deck, given [Sensor Ownership](Sensor Ownership.md) (nav perception must stay on Core).
+- Teacher kit hardware (which 3D LiDAR, mast mount) and the distillation recipe.
+- Calibration target and boot self-check thresholds.
 - New `friday_msgs` types for terrain semantics, per [friday_msgs Schema Conventions](friday_msgs Schema Conventions.md).
 
 ## Glossary
 
 - **Costmap:** a grid the planner uses; each cell has a cost from 0 (free) to 254 (lethal).
 - **Segmentation:** labelling every pixel of an image (sand, grass, rock…).
+- **BEV (bird's-eye view):** a top-down map around the rover; the fusion network draws one.
+- **Distillation:** a big "teacher" network with better sensors trains a small "student" network to give the same answers.
 - **Seed:** the random starting point of training; different seeds can give very different models.
 - **Closed-loop exam:** the model drives and its mistakes affect what it sees next, unlike scoring on recorded data.
 - **ONNX:** a common file format for trained models that many accelerators can import.
