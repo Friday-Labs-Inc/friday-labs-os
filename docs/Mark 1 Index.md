@@ -29,6 +29,7 @@ An autonomous modular research rover for public welfare, agriculture, forestry, 
 - [Spark Authority and friday-core-os Definition](addendums/Spark Authority and friday-core-os Definition.md) — Bay is launch interface, not flight brain; `friday-core-os` is the systemd target.
 - [Mechanical Design Reference](addendums/Mechanical Design Reference.md) — NASA Perseverance rover as the locked mechanical-anatomy reference; 6 drive + 4 corner steer; four locomotion modes.
 - [mmWave Human Detection](addendums/mmWave Human Detection.md) — RD-03D mmWave radar baseline on the Lab Deck; fog/dark/foliage-piercing detection complementing camera + LiDAR; LoRa sentry network deferred to Mark 2.
+- [Learned Perception and ML Pipeline](addendums/Learned Perception and ML Pipeline.md) — *proposal:* neural nets add costs and detections but never command motors or overrule geometry; `friday-ml` training repo with seeded, closed-loop exams; re-decide AI compute first.
 
 **Electronics (deck-by-deck electrical design):**
 - [Electronics Backbone](electronics/Electronics Backbone.md) — shared electrical foundation: distributed power tree, NC-loop physical E-stop, single-point star ground, central fusing, M8/M12 bulkhead connectors, custom-PCB build medium. **Read before the per-deck docs.**
